@@ -3,177 +3,566 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Control CONAL 2026</title>
+  <title>Control CONAL 2026 - Centro de Mando</title>
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <style>
-    body { font-family: system-ui, sans-serif; background: #0f172a; color: white; margin: 0; padding: 16px; text-align: center; }
-    .card { background: #1e293b; max-width: 450px; margin: 20px auto; padding: 20px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-    input, select { width: 100%; padding: 14px; margin: 8px 0; border-radius: 8px; border: none; font-size: 16px; box-sizing: border-box; background: #334155; color: white; }
-    button { width: 100%; padding: 14px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-    button:active { background: #2563eb; }
-    #reader { width: 100%; border-radius: 12px; overflow: hidden; margin-top: 15px; background: #000; }
-    .hidden { display: none; }
-    #resultado { margin-top: 20px; padding: 20px; border-radius: 12px; font-size: 18px; font-weight: bold; display: none; text-align: left; }
-    .VERDE { background: #065f46; border: 3px solid #10b981; color: #ecfdf5; }
-    .AMARILLO { background: #78350f; border: 3px solid #f59e0b; color: #fffbeb; }
-    .ROJO { background: #991b1b; border: 3px solid #ef4444; color: #fef2f2; }
-    .etiqueta { font-size: 14px; opacity: 0.8; margin-top: 5px; }
+    :root {
+      --bg: #0f172a; --card: #1e293b; --input: #334155; --primary: #3b82f6;
+      --green: #10b981; --yellow: #f59e0b; --red: #ef4444; --text: #f8fafc; --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 12px; }
+    .container { max-width: 650px; margin: 0 auto; padding-bottom: 40px; }
+    .card { background: var(--card); padding: 18px; border-radius: 14px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); margin-bottom: 16px; }
+    h2, h3, h4 { margin: 0 0 10px 0; }
+    input, select { width: 100%; padding: 12px; margin: 6px 0; border-radius: 8px; border: 1px solid #475569; font-size: 15px; background: var(--input); color: white; }
+    button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 8px; }
+    button:active { opacity: 0.9; }
+    .btn-sec { background: #475569; }
+    .btn-green { background: #059669; }
+    .btn-red { background: #dc2626; }
+    .btn-sm { padding: 8px 12px; font-size: 13px; width: auto; margin-top: 0; }
+    .hidden { display: none !important; }
+    
+    /* Header & Nav */
+    .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: var(--card); padding: 12px 16px; border-radius: 12px; }
+    .badge-rol { background: var(--primary); padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+    .nav-tabs { display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto; }
+    .tab-btn { flex: 1; background: var(--card); color: var(--muted); border: 1px solid #334155; padding: 10px 8px; font-size: 13px; margin-top: 0; white-space: nowrap; }
+    .tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+    /* Escáner y Resultados */
+    #reader { width: 100%; border-radius: 12px; overflow: hidden; margin-top: 12px; background: #000; }
+    #resultado { margin-top: 16px; padding: 16px; border-radius: 12px; font-size: 16px; display: none; text-align: left; }
+    .VERDE { background: #065f46; border: 2px solid var(--green); color: #ecfdf5; }
+    .AMARILLO { background: #78350f; border: 2px solid var(--yellow); color: #fffbeb; }
+    .ROJO { background: #991b1b; border: 2px solid var(--red); color: #fef2f2; }
+    .manual-box { display: flex; gap: 8px; margin-top: 10px; }
+    .manual-box input { margin: 0; flex: 1; }
+    .manual-box button { margin: 0; width: auto; padding: 0 18px; }
+
+    /* Estadísticas */
+    .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
+    .kpi-card { background: #0f172a; padding: 14px; border-radius: 10px; border: 1px solid #334155; text-align: center; }
+    .kpi-val { font-size: 24px; font-weight: 800; color: var(--primary); }
+    .kpi-lbl { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .stat-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #334155; font-size: 14px; }
+    .stat-row:last-child { border-bottom: none; }
+
+    /* Lista de Asistentes */
+    .item-asistente { background: #0f172a; padding: 12px; border-radius: 10px; margin-bottom: 8px; border-left: 4px solid var(--primary); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .item-asistente.alerta { border-left-color: var(--yellow); }
+    .item-info { text-align: left; flex: 1; }
+    .item-nombre { font-weight: bold; font-size: 15px; }
+    .item-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .item-rest { font-size: 12px; color: #fcd34d; margin-top: 4px; }
+    .tags-mov { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .tag { font-size: 10px; background: #065f46; color: #a7f3d0; padding: 2px 6px; border-radius: 4px; }
   </style>
 </head>
 <body>
 
+<div class="container">
   <!-- PANTALLA DE LOGIN -->
-  <div id="loginScreen" class="card">
+  <div id="loginScreen" class="card" style="max-width: 400px; margin-top: 40px; text-align: center;">
     <h2>Control CONAL 2026</h2>
-    <p class="etiqueta">Plataforma de Logística</p>
-    <input type="text" id="usuario" placeholder="Usuario (ej. logistica1)">
+    <p style="font-size: 14px; color: var(--muted); margin-bottom: 16px;">Sistema de Aforo, Acceso y Refrigerios</p>
+    <input type="text" id="usuario" placeholder="Usuario (ej. admin o logistica1)">
     <input type="password" id="password" placeholder="Contraseña">
-    <button onclick="realizarLogin()">Entrar al Sistema</button>
+    <button onclick="realizarLogin()">Ingresar al Sistema</button>
   </div>
 
-  <!-- PANTALLA DE ESCANEO -->
-  <div id="appScreen" class="card hidden">
-    <h3>Escáner de Acceso y Refrigerios</h3>
-    
-    <label class="etiqueta">Selecciona el momento actual:</label>
-    <select id="filtroMomento">
-      <option value="D1-INGRESO">Sábado - Ingreso General</option>
-      <option value="D1-REF1">Sábado - Refrigerio 1</option>
-      <option value="D1-REF2">Sábado - Refrigerio 2</option>
-      <option value="D2-INGRESO">Domingo - Ingreso General</option>
-      <option value="D2-REF1">Domingo - Refrigerio 1</option>
-      <option value="D2-REF2">Domingo - Refrigerio 2</option>
-      <option value="D3-INGRESO">Lunes - Ingreso General</option>
-      <option value="D3-REF1">Lunes - Refrigerio único</option>
-    </select>
+  <!-- APLICACIÓN PRINCIPAL -->
+  <div id="appScreen" class="hidden">
+    <div class="topbar">
+      <div>
+        <strong style="font-size: 16px;">CONAL 2026</strong>
+        <span id="badgeRol" class="badge-rol" style="margin-left: 6px;">ROL</span>
+      </div>
+      <button onclick="cerrarSesion()" class="btn-sec btn-sm">Salir</button>
+    </div>
 
-    <button onclick="reiniciarEscanner()" style="background: #475569; font-size: 13px; padding: 10px;">Siguiente Escaneo</button>
+    <!-- NAVEGACIÓN POR PESTAÑAS -->
+    <div class="nav-tabs">
+      <button class="tab-btn active" onclick="cambiarTab('tabEscaner', this)">📷 Escáner</button>
+      <button class="tab-btn" onclick="cambiarTab('tabLista', this)">👥 Asistentes</button>
+      <button class="tab-btn" onclick="cambiarTab('tabStats', this)">📊 Aforo y Stats</button>
+      <button id="btnTabAdmin" class="tab-btn hidden" onclick="cambiarTab('tabAdmin', this)">➕ Nuevo / Exportar</button>
+    </div>
 
-    <div id="reader"></div>
-    <div id="resultado"></div>
+    <!-- PESTAÑA 1: ESCÁNER Y BÚSQUEDA MANUAL -->
+    <div id="tabEscaner" class="tab-content">
+      <div class="card">
+        <label style="font-size: 13px; color: var(--muted);">Momento activo para registrar:</label>
+        <select id="filtroMomento">
+          <option value="D1-INGRESO">Sábado - Ingreso General</option>
+          <option value="D1-REF1">Sábado - Refrigerio 1</option>
+          <option value="D1-REF2">Sábado - Refrigerio 2</option>
+          <option value="D2-INGRESO">Domingo - Ingreso General</option>
+          <option value="D2-REF1">Domingo - Refrigerio 1</option>
+          <option value="D2-REF2">Domingo - Refrigerio 2</option>
+          <option value="D3-INGRESO">Lunes - Ingreso General</option>
+          <option value="D3-REF1">Lunes - Refrigerio Único</option>
+        </select>
+
+        <div id="reader"></div>
+        <button onclick="reiniciarEscanner()" class="btn-sec" style="font-size: 13px; padding: 9px;">Limpiar Alerta / Siguiente QR</button>
+
+        <div style="margin-top: 16px; border-top: 1px solid #334155; padding-top: 12px;">
+          <label style="font-size: 13px; color: var(--muted);">¿QR ilegible? Registro manual por cédula:</label>
+          <div class="manual-box">
+            <input type="number" id="inputManualCedula" placeholder="Digita la cédula...">
+            <button onclick="procesarManual()">Validar</button>
+          </div>
+        </div>
+
+        <div id="resultado"></div>
+      </div>
+    </div>
+
+    <!-- PESTAÑA 2: DIRECTORIO, FILTROS Y QUIÉNES ENTRARON -->
+    <div id="tabLista" class="tab-content hidden">
+      <div class="card">
+        <h3>Directorio de Asistentes (<span id="contadorFiltrados">0</span>)</h3>
+        <input type="text" id="buscadorTexto" placeholder="🔍 Buscar por nombre o cédula..." oninput="renderizarLista()">
+        
+        <div style="display: flex; gap: 8px;">
+          <select id="filtroCorte" onchange="renderizarLista()">
+            <option value="TODOS">Todos los Cortes</option>
+          </select>
+          <select id="filtroEstado" onchange="renderizarLista()">
+            <option value="TODOS">Todos los Estados</option>
+            <option value="CON_INGRESO">✅ Con algún ingreso</option>
+            <option value="SIN_INGRESO">⏳ Sin ingresos aún</option>
+            <option value="RESTRICCION">⚠️ Con alerta comida</option>
+          </select>
+        </div>
+
+        <div id="contenedorLista" style="margin-top: 12px; max-height: 60vh; overflow-y: auto;"></div>
+      </div>
+    </div>
+
+    <!-- PESTAÑA 3: PANEL DE AFORO Y ESTADÍSTICAS -->
+    <div id="tabStats" class="tab-content hidden">
+      <div class="card">
+        <h3>Aforo y Resumen General</h3>
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-val" id="kpiTotalBase">0</div>
+            <div class="kpi-lbl">Total Inscritos</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-val" id="kpiAsistentesUnicos" style="color: var(--green);">0</div>
+            <div class="kpi-lbl">Asistentes Activos</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-val" id="kpiTotalMovs" style="color: var(--yellow);">0</div>
+            <div class="kpi-lbl">Escaneos Totales</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-val" id="kpiMultas" style="color: var(--red);">$0</div>
+            <div class="kpi-lbl">Multas Acumuladas</div>
+          </div>
+        </div>
+
+        <h4>Desglose por Día y Momento</h4>
+        <div id="statsPorMomento" style="margin-bottom: 16px;"></div>
+
+        <h4>Aforo por Corte</h4>
+        <div id="statsPorCorte" style="margin-bottom: 16px;"></div>
+
+        <h4>Últimos 15 Registros en Vivo</h4>
+        <div id="historialReciente" style="font-size: 13px;"></div>
+      </div>
+    </div>
+
+    <!-- PESTAÑA 4: ADMIN (REGISTRAR NUEVO Y EXPORTAR) -->
+    <div id="tabAdmin" class="tab-content hidden">
+      <div class="card">
+        <h3>Registrar Nuevo Asistente</h3>
+        <p style="font-size: 13px; color: var(--muted);">Se añadirá inmediatamente a la base de datos local de este dispositivo.</p>
+        <input type="number" id="nuevoCedula" placeholder="Número de Cédula *">
+        <input type="text" id="nuevoNombre" placeholder="Nombre Completo *">
+        <select id="nuevoCorte">
+          <option value="Buganvilla (Comité)">Buganvilla (Comité)</option>
+          <option value="Heliconia (Preventa)">Heliconia (Preventa)</option>
+          <option value="Girasol (General I)">Girasol (General I)</option>
+          <option value="Agapanto (General II)">Agapanto (General II)</option>
+          <option value="Boca de Dragón (General III)">Boca de Dragón (General III)</option>
+          <option value="Orquídea (VIP)">Orquídea (VIP)</option>
+          <option value="Hortensia (Externos)">Hortensia (Externos)</option>
+          <option value="Crisantemo (JDN / Inge)">Crisantemo (JDN / Inge)</option>
+        </select>
+        <input type="text" id="nuevoRestriccion" placeholder="Restricción o Alergia (dejar vacío si no tiene)">
+        <button onclick="agregarNuevoAsistente()" class="btn-green">Guardar Asistente</button>
+      </div>
+
+      <div class="card">
+        <h3>Respaldo y Exportación</h3>
+        <p style="font-size: 13px; color: var(--muted);">Descarga un archivo compatible con Excel (.csv) con todos los ingresos, refrigerios y multas registrados.</p>
+        <button onclick="exportarCSV()">📥 Descargar Reporte Excel (CSV)</button>
+        <button onclick="limpiarRegistros()" class="btn-red" style="margin-top: 20px; font-size: 13px;">⚠️ Reiniciar Todos los Registros (Cuidado)</button>
+      </div>
+    </div>
   </div>
+</div>
 
-  <script>
-    let baseAsistentes = [];
-    let html5QrCode = null;
-    let escaneandoActivo = false;
-    let bloqueado = false;
+<script>
+  let baseAsistentes = [];
+  let historialRegistros = [];
+  let rolActual = "";
+  let html5QrCode = null;
+  let escaneandoActivo = false;
+  let bloqueado = false;
 
-    const USUARIOS_VALIDOS = {
-      "admin": "conal2026admin",
-      "logistica1": "log123",
-      "logistica2": "log123",
-      "logistica3": "log123",
-      "logistica4": "log123"
-    };
+  const USUARIOS_VALIDOS = {
+    "admin": { pass: "conal2026admin", rol: "ADMIN" },
+    "logistica1": { pass: "log123", rol: "OPERADOR" },
+    "logistica2": { pass: "log123", rol: "OPERADOR" },
+    "logistica3": { pass: "log123", rol: "OPERADOR" },
+    "logistica4": { pass: "log123", rol: "OPERADOR" }
+  };
 
-    const HORA_LIMITE = {
-      "D1-INGRESO": "08:30",
-      "D2-INGRESO": "08:30",
-      "D3-INGRESO": "09:00"
-    };
+  const NOMBRES_MOMENTOS = {
+    "D1-INGRESO": "Sábado - Ingreso",
+    "D1-REF1": "Sábado - Ref. 1",
+    "D1-REF2": "Sábado - Ref. 2",
+    "D2-INGRESO": "Domingo - Ingreso",
+    "D2-REF1": "Domingo - Ref. 1",
+    "D2-REF2": "Domingo - Ref. 2",
+    "D3-INGRESO": "Lunes - Ingreso",
+    "D3-REF1": "Lunes - Ref. Único"
+  };
 
-    window.onload = function() {
-      fetch('asistentes.json')
-        .then(res => res.json())
-        .then(data => { baseAsistentes = data; })
-        .catch(err => alert("Error cargando asistentes.json. Verifica que esté subido en el repositorio."));
-    };
+  const HORA_LIMITE = {
+    "D1-INGRESO": "08:30",
+    "D2-INGRESO": "08:30",
+    "D3-INGRESO": "09:00"
+  };
 
-    function realizarLogin() {
-      const u = document.getElementById('usuario').value.trim();
-      const p = document.getElementById('password').value.trim();
+  // Inicialización
+  window.onload = function() {
+    // Cargar historial guardado
+    const histGuardado = localStorage.getItem('conal2026_historial');
+    if (histGuardado) historialRegistros = JSON.parse(histGuardado);
 
-      if (USUARIOS_VALIDOS[u] && USUARIOS_VALIDOS[u] === p) {
-        document.getElementById('loginScreen').classList.add('hidden');
-        document.getElementById('appScreen').classList.remove('hidden');
-        iniciarCamara();
-      } else {
-        alert("Usuario o contraseña incorrectos.");
+    // Cargar asistentes desde JSON + extras agregados manualmente
+    fetch('asistentes.json')
+      .then(res => res.json())
+      .then(data => {
+        const extras = JSON.parse(localStorage.getItem('conal2026_extras') || "[]");
+        baseAsistentes = [...data, ...extras];
+        poblarFiltroCortes();
+      })
+      .catch(err => alert("Error cargando asistentes.json. Verifica el archivo en GitHub."));
+  };
+
+  function realizarLogin() {
+    const u = document.getElementById('usuario').value.trim().toLowerCase();
+    const p = document.getElementById('password').value.trim();
+
+    if (USUARIOS_VALIDOS[u] && USUARIOS_VALIDOS[u].pass === p) {
+      rolActual = USUARIOS_VALIDOS[u].rol;
+      document.getElementById('badgeRol').innerText = `${u.toUpperCase()} (${rolActual})`;
+      if (rolActual === "ADMIN") {
+        document.getElementById('btnTabAdmin').classList.remove('hidden');
       }
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('appScreen').classList.remove('hidden');
+      iniciarCamara();
+    } else {
+      alert("Usuario o contraseña incorrectos.");
     }
+  }
 
-    function iniciarCamara() {
-      if (escaneandoActivo) return;
-      html5QrCode = new Html5Qrcode("reader");
-      html5QrCode.start(
-        { facingMode: "environment" },
-        { fps: 15, qrbox: 250 },
-        onScanSuccess
-      ).then(() => {
-        escaneandoActivo = true;
-      }).catch(err => {
-        alert("No se pudo iniciar la cámara. Da permisos en tu navegador móvil.");
-      });
-    }
+  function cerrarSesion() {
+    location.reload();
+  }
 
-    function onScanSuccess(decodedText) {
-      if (bloqueado) return;
-      bloqueado = true;
+  function cambiarTab(tabId, btn) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById(tabId).classList.remove('hidden');
+    btn.classList.add('active');
 
-      const cedulaEscaneada = decodedText.trim();
-      const momento = document.getElementById('filtroMomento').value;
-      const resDiv = document.getElementById('resultado');
+    if (tabId === 'tabLista') renderizarLista();
+    if (tabId === 'tabStats') actualizarEstadisticas();
+  }
 
+  function iniciarCamara() {
+    if (escaneandoActivo) return;
+    html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start(
+      { facingMode: "environment" },
+      { fps: 15, qrbox: 240 },
+      (decodedText) => procesarValidacion(decodedText)
+    ).then(() => {
+      escaneandoActivo = true;
+    }).catch(err => {
+      console.warn("Cámara no iniciada automáticamente:", err);
+    });
+  }
+
+  function procesarManual() {
+    const cedula = document.getElementById('inputManualCedula').value.trim();
+    if (!cedula) return alert("Digita una cédula válida.");
+    bloqueado = false;
+    procesarValidacion(cedula);
+    document.getElementById('inputManualCedula').value = "";
+  }
+
+  function procesarValidacion(codigoCrudo, momentoForzado = null) {
+    if (bloqueado && !momentoForzado) return;
+    bloqueado = true;
+
+    const cedula = String(codigoCrudo).trim();
+    const momento = momentoForzado || document.getElementById('filtroMomento').value;
+    const resDiv = document.getElementById('resultado');
+
+    if (!momentoForzado) {
       resDiv.style.display = 'block';
       resDiv.className = '';
       resDiv.style.background = '#334155';
       resDiv.innerHTML = '⏳ Verificando...';
+    }
 
-      const asistente = baseAsistentes.find(a => String(a.cedula).trim() === cedulaEscaneada);
+    const asistente = baseAsistentes.find(a => String(a.cedula).trim() === cedula);
 
-      if (!asistente) {
+    if (!asistente) {
+      if (!momentoForzado) {
         resDiv.className = 'ROJO';
-        resDiv.innerHTML = `❌ NO ENCONTRADO<br><span style="font-size:14px">Cédula: ${cedulaEscaneada} no registrada.</span>`;
-        setTimeout(() => { bloqueado = false; }, 3000);
-        return;
+        resDiv.innerHTML = `❌ NO ENCONTRADO<br><span style="font-size:14px">Cédula <b>${cedula}</b> no está en la base de datos.</span>`;
+        setTimeout(() => { bloqueado = false; }, 2500);
       }
+      return;
+    }
 
-      const claveRegistro = `${cedulaEscaneada}_${momento}`;
-      if (localStorage.getItem(claveRegistro)) {
+    // Verificar duplicado en el historial
+    const yaExiste = historialRegistros.find(r => r.cedula === cedula && r.momento === momento);
+    if (yaExiste) {
+      if (!momentoForzado) {
         resDiv.className = 'ROJO';
-        resDiv.innerHTML = `⚠️ ACCESO DENEGADO (YA REGISTRADO)<br><span style="font-size:16px">${asistente.nombre}</span><br><span style="font-size:14px">Ya reclamó este refrigerio o ingreso.</span>`;
+        resDiv.innerHTML = `⚠️ YA REGISTRADO<br><span style="font-size:15px">${asistente.nombre}</span><br><span style="font-size:13px">Ya registró <b>${NOMBRES_MOMENTOS[momento]}</b> a las ${yaExiste.hora}.</span>`;
         setTimeout(() => { bloqueado = false; }, 3000);
-        return;
+      } else {
+        alert(`${asistente.nombre} ya tiene registrado ${NOMBRES_MOMENTOS[momento]}.`);
       }
+      return;
+    }
 
-      localStorage.setItem(claveRegistro, new Date().toISOString());
+    // Calcular multa si aplica
+    const ahora = new Date();
+    const horaStr = String(ahora.getHours()).padStart(2, '0') + ":" + String(ahora.getMinutes()).padStart(2, '0');
+    const fechaStr = ahora.toLocaleDateString('es-CO');
+    let multaValor = 0;
+    let textoMulta = "";
 
-      let textoMulta = "";
-      if (momento.includes("INGRESO") && HORA_LIMITE[momento]) {
-        const ahora = new Date();
-        const horaActualStr = String(ahora.getHours()).padStart(2, '0') + ":" + String(ahora.getMinutes()).padStart(2, '0');
-        const limiteStr = HORA_LIMITE[momento];
-
-        if (horaActualStr > limiteStr) {
-          const [hL, mL] = limiteStr.split(':').map(Number);
-          const [hA, mA] = horaActualStr.split(':').map(Number);
-          const minutosTarde = (hA * 60 + mA) - (hL * 60 + mL);
-          const multaValor = minutosTarde * 700;
-          textoMulta = `⚠️ Multa por tardanza (${minutosTarde} min): $${multaValor.toLocaleString()}`;
-        }
+    if (momento.includes("INGRESO") && HORA_LIMITE[momento]) {
+      const limiteStr = HORA_LIMITE[momento];
+      if (horaStr > limiteStr) {
+        const [hL, mL] = limiteStr.split(':').map(Number);
+        const [hA, mA] = horaStr.split(':').map(Number);
+        const minutosTarde = (hA * 60 + mA) - (hL * 60 + mL);
+        multaValor = minutosTarde * 700;
+        textoMulta = `⚠️ Retardo (${minutosTarde} min) - Multa: $${multaValor.toLocaleString()}`;
       }
+    }
 
-      const restriccion = asistente.restriccion || "Sin restricciones";
-      const tieneRestriccion = restriccion !== "Sin restricciones" && 
-        !["ninguna", "no aplica", "nada", "."].includes(restriccion.toLowerCase());
+    // Guardar registro
+    const nuevoReg = {
+      fecha: fechaStr,
+      hora: horaStr,
+      momento: momento,
+      momentoNombre: NOMBRES_MOMENTOS[momento],
+      cedula: cedula,
+      nombre: asistente.nombre,
+      corte: asistente.corte,
+      restriccion: asistente.restriccion || "Sin restricciones",
+      multa: multaValor
+    };
+    historialRegistros.unshift(nuevoReg);
+    localStorage.setItem('conal2026_historial', JSON.stringify(historialRegistros));
 
-      resDiv.className = tieneRestriccion ? 'AMARILLO' : 'VERDE';
+    // Mostrar resultado
+    const restriccion = asistente.restriccion || "Sin restricciones";
+    const tieneAlerta = restriccion !== "Sin restricciones" && !["ninguna", "no aplica", "nada", "."].includes(restriccion.toLowerCase());
+
+    if (!momentoForzado) {
+      resDiv.className = tieneAlerta ? 'AMARILLO' : 'VERDE';
       resDiv.innerHTML = `
-        <div style="font-size:20px; font-weight:bold;">${tieneRestriccion ? '⚠️ PUEDE PASAR (ALERTA COMIDA)' : '✅ PUEDE PASAR'}</div>
-        <div style="font-size:16px; margin-top:8px;"><b>Asistente:</b> ${asistente.nombre}</div>
-        <div style="font-size:14px;"><b>Corte:</b> ${asistente.corte}</div>
-        <div style="font-size:15px; margin-top:6px; background:rgba(0,0,0,0.3); padding:8px; border-radius:6px;">🍽️ ${restriccion}</div>
+        <div style="font-size:19px; font-weight:bold;">${tieneAlerta ? '⚠️ PUEDE PASAR (ALERTA COMIDA)' : '✅ PUEDE PASAR'}</div>
+        <div style="font-size:15px; margin-top:6px;"><b>Asistente:</b> ${asistente.nombre}</div>
+        <div style="font-size:13px;"><b>Corte:</b> ${asistente.corte}</div>
+        <div style="font-size:14px; margin-top:6px; background:rgba(0,0,0,0.3); padding:8px; border-radius:6px;">🍽️ ${restriccion}</div>
         ${textoMulta ? `<div style="font-size:14px; color:#fde047; margin-top:6px;"><b>${textoMulta}</b></div>` : ''}
       `;
-
-      setTimeout(() => { bloqueado = false; }, 3500);
+      setTimeout(() => { bloqueado = false; }, 3000);
+    } else {
+      renderizarLista();
     }
+  }
 
-    function reiniciarEscanner() {
-      bloqueado = false;
-      document.getElementById('resultado').style.display = 'none';
+  function reiniciarEscanner() {
+    bloqueado = false;
+    document.getElementById('resultado').style.display = 'none';
+  }
+
+  // --- FUNCIONES DE LISTA Y FILTROS ---
+  function poblarFiltroCortes() {
+    const sel = document.getElementById('filtroCorte');
+    const cortes = [...new Set(baseAsistentes.map(a => a.corte))].filter(Boolean);
+    cortes.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c;
+      opt.innerText = c;
+      sel.appendChild(opt);
+    });
+  }
+
+  function renderizarLista() {
+    const texto = document.getElementById('buscadorTexto').value.toLowerCase();
+    const corteSel = document.getElementById('filtroCorte').value;
+    const estadoSel = document.getElementById('filtroEstado').value;
+    const momentoActivo = document.getElementById('filtroMomento').value;
+
+    const filtrados = baseAsistentes.filter(a => {
+      const coincideTexto = a.nombre.toLowerCase().includes(texto) || String(a.cedula).includes(texto);
+      const coincideCorte = corteSel === "TODOS" || a.corte === corteSel;
+      
+      const movsPersona = historialRegistros.filter(r => r.cedula === String(a.cedula));
+      const tieneRest = a.restriccion && a.restriccion !== "Sin restricciones";
+
+      let coincideEstado = true;
+      if (estadoSel === "CON_INGRESO") coincideEstado = movsPersona.length > 0;
+      if (estadoSel === "SIN_INGRESO") coincideEstado = movsPersona.length === 0;
+      if (estadoSel === "RESTRICCION") coincideEstado = tieneRest;
+
+      return coincideTexto && coincideCorte && coincideEstado;
+    });
+
+    document.getElementById('contadorFiltrados').innerText = filtrados.length;
+    const contenedor = document.getElementById('contenedorLista');
+    
+    contenedor.innerHTML = filtrados.map(a => {
+      const movs = historialRegistros.filter(r => r.cedula === String(a.cedula));
+      const tieneRest = a.restriccion && a.restriccion !== "Sin restricciones";
+      const yaTieneActivo = movs.some(m => m.momento === momentoActivo);
+
+      const tagsHtml = movs.map(m => `<span class="tag">${m.momentoNombre} (${m.hora})</span>`).join('');
+
+      return `
+        <div class="item-asistente ${tieneRest ? 'alerta' : ''}">
+          <div class="item-info">
+            <div class="item-nombre">${a.nombre}</div>
+            <div class="item-meta">CC: ${a.cedula} • ${a.corte}</div>
+            ${tieneRest ? `<div class="item-rest">🍽️ ${a.restriccion}</div>` : ''}
+            <div class="tags-mov">${tagsHtml || '<span style="font-size:11px; color:#64748b;">Sin registros aún</span>'}</div>
+          </div>
+          <div>
+            ${yaTieneActivo 
+              ? `<span style="font-size:12px; color:var(--green); font-weight:bold;">✔ Listo</span>` 
+              : `<button class="btn-sm" onclick="procesarValidacion('${a.cedula}', '${momentoActivo}')">+ Registrar</button>`
+            }
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // --- FUNCIONES DE ESTADÍSTICAS ---
+  function actualizarEstadisticas() {
+    document.getElementById('kpiTotalBase').innerText = baseAsistentes.length;
+    
+    const cedulasUnicas = new Set(historialRegistros.map(r => r.cedula));
+    document.getElementById('kpiAsistentesUnicos').innerText = cedulasUnicas.size;
+    document.getElementById('kpiTotalMovs').innerText = historialRegistros.length;
+
+    const totalMultas = historialRegistros.reduce((acc, r) => acc + (r.multa || 0), 0);
+    document.getElementById('kpiMultas').innerText = `$${totalMultas.toLocaleString()}`;
+
+    // Por momento
+    const divMom = document.getElementById('statsPorMomento');
+    divMom.innerHTML = Object.keys(NOMBRES_MOMENTOS).map(key => {
+      const count = historialRegistros.filter(r => r.momento === key).length;
+      return `<div class="stat-row"><span>${NOMBRES_MOMENTOS[key]}</span><strong>${count} / ${baseAsistentes.length}</strong></div>`;
+    }).join('');
+
+    // Por corte (asistentes únicos que han registrado al menos 1 movimiento)
+    const cortes = [...new Set(baseAsistentes.map(a => a.corte))].filter(Boolean);
+    const divCorte = document.getElementById('statsPorCorte');
+    divCorte.innerHTML = cortes.map(c => {
+      const totalCorte = baseAsistentes.filter(a => a.corte === c).length;
+      const activosCorte = new Set(historialRegistros.filter(r => r.corte === c).map(r => r.cedula)).size;
+      return `<div class="stat-row"><span>${c}</span><strong>${activosCorte} / ${totalCorte}</strong></div>`;
+    }).join('');
+
+    // Historial reciente
+    const divHist = document.getElementById('historialReciente');
+    if (historialRegistros.length === 0) {
+      divHist.innerHTML = `<p style="color:var(--muted);">Aún no hay escaneos registrados.</p>`;
+    } else {
+      divHist.innerHTML = historialRegistros.slice(0, 15).map(r => `
+        <div class="stat-row">
+          <div>
+            <strong>${r.nombre}</strong><br>
+            <span style="color:var(--muted); font-size:11px;">${r.momentoNombre} • ${r.corte}</span>
+          </div>
+          <div style="text-align:right;">
+            <span>${r.hora}</span>
+            ${r.multa > 0 ? `<br><span style="color:var(--red); font-size:11px;">+$${r.multa.toLocaleString()}</span>` : ''}
+          </div>
+        </div>
+      `).join('');
     }
-  </script>
+  }
+
+  // --- FUNCIONES DE ADMINISTRADOR ---
+  function agregarNuevoAsistente() {
+    const cedula = document.getElementById('nuevoCedula').value.trim();
+    const nombre = document.getElementById('nuevoNombre').value.trim();
+    const corte = document.getElementById('nuevoCorte').value;
+    const rest = document.getElementById('nuevoRestriccion').value.trim() || "Sin restricciones";
+
+    if (!cedula || !nombre) return alert("Cédula y Nombre son obligatorios.");
+    if (baseAsistentes.some(a => String(a.cedula) === cedula)) return alert("Esa cédula ya existe en la lista.");
+
+    const nuevo = { cedula, nombre, corte, restriccion: rest };
+    baseAsistentes.push(nuevo);
+
+    const extras = JSON.parse(localStorage.getItem('conal2026_extras') || "[]");
+    extras.push(nuevo);
+    localStorage.setItem('conal2026_extras', JSON.stringify(extras));
+
+    document.getElementById('nuevoCedula').value = "";
+    document.getElementById('nuevoNombre').value = "";
+    document.getElementById('nuevoRestriccion').value = "";
+    alert(`✅ ${nombre} agregado correctamente.`);
+  }
+
+  function exportarCSV() {
+    if (historialRegistros.length === 0) return alert("No hay registros para exportar todavía.");
+    
+    let csv = "\uFEFFFECHA;HORA;MOMENTO;CEDULA;NOMBRE;CORTE;RESTRICCION;MULTA\n";
+    historialRegistros.forEach(r => {
+      csv += `${r.fecha};${r.hora};${r.momentoNombre};${r.cedula};"${r.nombre}";"${r.corte}";"${r.restriccion}";${r.multa}\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Reporte_CONAL2026_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+  }
+
+  function limpiarRegistros() {
+    if (confirm("¿Estás 100% seguro de borrar todo el historial de ingresos y refrigerios de este dispositivo?")) {
+      historialRegistros = [];
+      localStorage.removeItem('conal2026_historial');
+      actualizarEstadisticas();
+      alert("Historial reiniciado a cero.");
+    }
+  }
+</script>
 </body>
 </html>
