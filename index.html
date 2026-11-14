@@ -26,8 +26,8 @@
 
     /* Header & Logo Institucional */
     .brand-header { background: var(--card); padding: 16px; border-radius: 14px; text-align: center; margin-bottom: 14px; border: 1px solid #334155; }
-    .logo-img { max-height: 50px; width: auto; margin-bottom: 6px; object-fit: contain; }
-    .brand-fallback { font-size: 22px; font-weight: 900; background: linear-gradient(45deg, #3b82f6, #10b981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .logo-img { max-height: 70px; width: auto; margin-bottom: 6px; object-fit: contain; }
+    .brand-fallback { font-size: 24px; font-weight: 900; background: linear-gradient(45deg, #3b82f6, #10b981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     .topbar { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 13px; color: var(--muted); border-top: 1px solid #334155; padding-top: 8px; }
     .badge-rol { background: var(--primary); color: white; padding: 2px 8px; border-radius: 12px; font-weight: bold; }
 
@@ -95,8 +95,8 @@
   <!-- APLICACIÓN PRINCIPAL -->
   <div id="appScreen" class="hidden">
     <div class="brand-header">
-      <!-- LOGO REAL DE CONAL: Puedes reemplazar el enlace de abajo con el link directo de tu imagen de logo si la subes a GitHub -->
-      <img id="logoConalImg" src="https://i.ibb.co/3s6q34g/logo-conal.png" alt="Logo CONAL 2026" class="logo-img" onerror="this.style.display='none'; document.getElementById('fallbackLogo').style.display='block';">
+      <!-- LOGO OFICIAL DE CONAL (Asegúrate de subir tu imagen con el nombre logo-conal.png a GitHub) -->
+      <img id="logoConalImg" src="logo-conal.png" alt="Logo CONAL 2026" class="logo-img" onerror="this.style.display='none'; document.getElementById('fallbackLogo').style.display='block';">
       <div id="fallbackLogo" class="brand-fallback" style="display:none;">🌿 CONAL MEDELLÍN 2026</div>
       
       <div class="topbar">
@@ -241,7 +241,6 @@
     "D3-REF1": "Lunes - Refrigerio Único"
   };
 
-  // --- SINTETIZADOR DE AUDIO (BIPS Y ZUMBIDOS) ---
   function reproducirSonido(tipo) {
     try {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -251,20 +250,17 @@
       gain.connect(audioCtx.destination);
 
       if (tipo === "VERDE") {
-        // Tip agudo y alegre de éxito (Doble bip)
-        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
-        osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.1); // A5
+        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.1);
         gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
         osc.start();
         osc.stop(audioCtx.currentTime + 0.25);
       } else if (tipo === "AMARILLO") {
-        // Advertencia (Tono medio)
-        osc.frequency.setValueAtTime(440, audioCtx.currentTime); // A4
+        osc.frequency.setValueAtTime(440, audioCtx.currentTime);
         gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
         osc.start();
         osc.stop(audioCtx.currentTime + 0.3);
       } else {
-        // Error / Denegado (Zumbido grave)
         osc.type = "sawtooth";
         osc.frequency.setValueAtTime(150, audioCtx.currentTime);
         gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
@@ -272,13 +268,13 @@
         osc.stop(audioCtx.currentTime + 0.4);
       }
     } catch (e) {
-      console.log("Audio no soportado o bloqueado por navegador", e);
+      console.log("Audio no soportado", e);
     }
   }
 
   window.onload = function() {
     const histGuardado = localStorage.getItem('conal2026_historial');
-    if (histguardado) historialRegistros = JSON.parse(histGuardado);
+    if (histGuardado) historialRegistros = JSON.parse(histGuardado);
 
     fetch('asistentes.json')
       .then(res => res.json())
@@ -356,14 +352,12 @@
 
     const asistente = baseAsistentes.find(a => String(a.cedula).trim() === cedula);
 
-    // 1. NO ENCONTRADO (ROJO)
     if (!asistente) {
       reproducirSonido("ROJO");
       mostrarAlertaFull("ROJO", "❌ NO ENCONTRADO", `Cédula: ${cedula}`, "Este documento no existe en la base de datos de asistentes.", "");
       return;
     }
 
-    // 2. YA REGISTRADO PREVIAMENTE (AMARILLO)
     const yaExiste = historialRegistros.find(r => r.cedula === cedula && r.momento === momento);
     if (yaExiste) {
       reproducirSonido("AMARILLO");
@@ -371,7 +365,6 @@
       return;
     }
 
-    // 3. ACCESO APROBADO (VERDE)
     reproducirSonido("VERDE");
     const ahora = new Date();
     const horaStr = String(ahora.getHours()).padStart(2, '0') + ":" + String(ahora.getMinutes()).padStart(2, '0');
@@ -415,7 +408,6 @@
 
     if (timerAlertaFull) clearTimeout(timerAlertaFull);
 
-    // Pantalla activa 8 segundos y luego salta directo a Estadísticas si fue Verde
     timerAlertaFull = setTimeout(() => {
       cerrarAlertaFull();
       if (tipo === "VERDE") {
@@ -430,7 +422,6 @@
     bloqueado = false;
   }
 
-  // --- DIRECTORIO Y FILTROS ---
   function poblarFiltroCortes() {
     const sel = document.getElementById('filtroCorte');
     const cortes = [...new Set(baseAsistentes.map(a => a.corte))].filter(Boolean);
@@ -486,7 +477,6 @@
     }).join('');
   }
 
-  // --- ESTADÍSTICAS ---
   function actualizarEstadisticas() {
     document.getElementById('kpiTotalBase').innerText = baseAsistentes.length;
     
@@ -494,14 +484,12 @@
     document.getElementById('kpiAsistentesUnicos').innerText = cedulasUnicas.size;
     document.getElementById('kpiTotalMovs').innerText = historialRegistros.length;
 
-    // Por momento
     const divMom = document.getElementById('statsPorMomento');
     divMom.innerHTML = Object.keys(NOMBRES_MOMENTOS).map(key => {
       const count = historialRegistros.filter(r => r.momento === key).length;
       return `<div class="stat-row"><span>${NOMBRES_MOMENTOS[key]}</span><strong>${count} / ${baseAsistentes.length}</strong></div>`;
     }).join('');
 
-    // Por corte
     const cortes = [...new Set(baseAsistentes.map(a => a.corte))].filter(Boolean);
     const divCorte = document.getElementById('statsPorCorte');
     divCorte.innerHTML = cortes.map(c => {
@@ -510,7 +498,6 @@
       return `<div class="stat-row"><span>${c}</span><strong>${activosCorte} / ${totalCorte}</strong></div>`;
     }).join('');
 
-    // Historial reciente
     const divHist = document.getElementById('historialReciente');
     if (historialRegistros.length === 0) {
       divHist.innerHTML = `<p style="color:var(--muted);">Aún no hay escaneos registrados.</p>`;
@@ -529,7 +516,6 @@
     }
   }
 
-  // --- PANEL ADMIN (CORRECCIÓN Y BORRADO) ---
   function renderizarAdminRegistros() {
     document.getElementById('totalRegistrosAdmin').innerText = historialRegistros.length;
     const contenedor = document.getElementById('listaAdminRegistros');
@@ -573,7 +559,7 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `Reporte_CONAL2026_${newDate().toISOString().slice(0,10)}.csv`;
+    a.download = `Reporte_CONAL2026_${new Date().toISOString().slice(0,10)}.csv`;
     a.click();
   }
 
