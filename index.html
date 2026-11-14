@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control CONAL 2026</title>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0f172a; color: white; margin: 0; padding: 16px; text-align: center; }
+    .card { background: #1e293b; max-width: 450px; margin: 20px auto; padding: 20px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+    input, select { width: 100%; padding: 14px; margin: 8px 0; border-radius: 8px; border: none; font-size: 16px; box-sizing: border-box; background: #334155; color: white; }
+    button { width: 100%; padding: 14px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+    button:active { background: #2563eb; }
+    #reader { width: 100%; border-radius: 12px; overflow: hidden; margin-top: 15px; background: #000; }
+    .hidden { display: none; }
+    #resultado { margin-top: 20px; padding: 20px; border-radius: 12px; font-size: 18px; font-weight: bold; display: none; text-align: left; }
+    .VERDE { background: #065f46; border: 3px solid #10b981; color: #ecfdf5; }
+    .AMARILLO { background: #78350f; border: 3px solid #f59e0b; color: #fffbeb; }
+    .ROJO { background: #991b1b; border: 3px solid #ef4444; color: #fef2f2; }
+    .etiqueta { font-size: 14px; opacity: 0.8; margin-top: 5px; }
+  </style>
+</head>
+<body>
+
+  <!-- PANTALLA DE LOGIN -->
+  <div id="loginScreen" class="card">
+    <h2>Control CONAL 2026</h2>
+    <p class="etiqueta">Plataforma de Logística</p>
+    <input type="text" id="usuario" placeholder="Usuario (ej. logistica1)">
+    <input type="password" id="password" placeholder="Contraseña">
+    <button onclick="realizarLogin()">Entrar al Sistema</button>
+  </div>
+
+  <!-- PANTALLA DE ESCANEO -->
+  <div id="appScreen" class="card hidden">
+    <h3>Escáner de Acceso y Refrigerios</h3>
+    
+    <label class="etiqueta">Selecciona el momento actual:</label>
+    <select id="filtroMomento">
+      <option value="D1-INGRESO">Sábado - Ingreso General</option>
+      <option value="D1-REF1">Sábado - Refrigerio 1</option>
+      <option value="D1-REF2">Sábado - Refrigerio 2</option>
+      <option value="D2-INGRESO">Domingo - Ingreso General</option>
+      <option value="D2-REF1">Domingo - Refrigerio 1</option>
+      <option value="D2-REF2">Domingo - Refrigerio 2</option>
+      <option value="D3-INGRESO">Lunes - Ingreso General</option>
+      <option value="D3-REF1">Lunes - Refrigerio único</option>
+    </select>
+
+    <button onclick="reiniciarEscanner()" style="background: #475569; font-size: 13px; padding: 10px;">Siguiente Escaneo</button>
+
+    <div id="reader"></div>
+    <div id="resultado"></div>
+  </div>
+
+  <script>
+    let baseAsistentes = [];
+    let html5QrCode = null;
+    let escaneandoActivo = false;
+    let bloqueado = false;
+
+    const USUARIOS_VALIDOS = {
+      "admin": "conal2026admin",
+      "logistica1": "log123",
+      "logistica2": "log123",
+      "logistica3": "log123",
+      "logistica4": "log123"
+    };
+
+    const HORA_LIMITE = {
+      "D1-INGRESO": "08:30",
+      "D2-INGRESO": "08:30",
+      "D3-INGRESO": "09:00"
+    };
+
+    window.onload = function() {
+      fetch('asistentes.json')
+        .then(res => res.json())
+        .then(data => { baseAsistentes = data; })
+        .catch(err => alert("Error cargando asistentes.json. Verifica que esté subido en el repositorio."));
+    };
+
+    function realizarLogin() {
+      const u = document.getElementById('usuario').value.trim();
+      const p = document.getElementById('password').value.trim();
+
+      if (USUARIOS_VALIDOS[u] && USUARIOS_VALIDOS[u] === p) {
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('appScreen').classList.remove('hidden');
+        iniciarCamara();
+      } else {
+        alert("Usuario o contraseña incorrectos.");
+      }
+    }
+
+    function iniciarCamara() {
+      if (escaneandoActivo) return;
+      html5QrCode = new Html5Qrcode("reader");
+      html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 15, qrbox: 250 },
+        onScanSuccess
+      ).then(() => {
+        escaneandoActivo = true;
+      }).catch(err => {
+        alert("No se pudo iniciar la cámara. Da permisos en tu navegador móvil.");
+      });
+    }
+
+    function onScanSuccess(decodedText) {
+      if (bloqueado) return;
+      bloqueado = true;
+
+      const cedulaEscaneada = decodedText.trim();
+      const momento = document.getElementById('filtroMomento').value;
+      const resDiv = document.getElementById('resultado');
+
+      resDiv.style.display = 'block';
+      resDiv.className = '';
+      resDiv.style.background = '#334155';
+      resDiv.innerHTML = '⏳ Verificando...';
+
+      const asistente = baseAsistentes.find(a => String(a.cedula).trim() === cedulaEscaneada);
+
+      if (!asistente) {
+        resDiv.className = 'ROJO';
+        resDiv.innerHTML = `❌ NO ENCONTRADO<br><span style="font-size:14px">Cédula: ${cedulaEscaneada} no registrada.</span>`;
+        setTimeout(() => { bloqueado = false; }, 3000);
+        return;
+      }
+
+      const claveRegistro = `${cedulaEscaneada}_${momento}`;
+      if (localStorage.getItem(claveRegistro)) {
+        resDiv.className = 'ROJO';
+        resDiv.innerHTML = `⚠️ ACCESO DENEGADO (YA REGISTRADO)<br><span style="font-size:16px">${asistente.nombre}</span><br><span style="font-size:14px">Ya reclamó este refrigerio o ingreso.</span>`;
+        setTimeout(() => { bloqueado = false; }, 3000);
+        return;
+      }
+
+      localStorage.setItem(claveRegistro, new Date().toISOString());
+
+      let textoMulta = "";
+      if (momento.includes("INGRESO") && HORA_LIMITE[momento]) {
+        const ahora = new Date();
+        const horaActualStr = String(ahora.getHours()).padStart(2, '0') + ":" + String(ahora.getMinutes()).padStart(2, '0');
+        const limiteStr = HORA_LIMITE[momento];
+
+        if (horaActualStr > limiteStr) {
+          const [hL, mL] = limiteStr.split(':').map(Number);
+          const [hA, mA] = horaActualStr.split(':').map(Number);
+          const minutosTarde = (hA * 60 + mA) - (hL * 60 + mL);
+          const multaValor = minutosTarde * 700;
+          textoMulta = `⚠️ Multa por tardanza (${minutosTarde} min): $${multaValor.toLocaleString()}`;
+        }
+      }
+
+      const restriccion = asistente.restriccion || "Sin restricciones";
+      const tieneRestriccion = restriccion !== "Sin restricciones" && 
+        !["ninguna", "no aplica", "nada", "."].includes(restriccion.toLowerCase());
+
+      resDiv.className = tieneRestriccion ? 'AMARILLO' : 'VERDE';
+      resDiv.innerHTML = `
+        <div style="font-size:20px; font-weight:bold;">${tieneRestriccion ? '⚠️ PUEDE PASAR (ALERTA COMIDA)' : '✅ PUEDE PASAR'}</div>
+        <div style="font-size:16px; margin-top:8px;"><b>Asistente:</b> ${asistente.nombre}</div>
+        <div style="font-size:14px;"><b>Corte:</b> ${asistente.corte}</div>
+        <div style="font-size:15px; margin-top:6px; background:rgba(0,0,0,0.3); padding:8px; border-radius:6px;">🍽️ ${restriccion}</div>
+        ${textoMulta ? `<div style="font-size:14px; color:#fde047; margin-top:6px;"><b>${textoMulta}</b></div>` : ''}
+      `;
+
+      setTimeout(() => { bloqueado = false; }, 3500);
+    }
+
+    function reiniciarEscanner() {
+      bloqueado = false;
+      document.getElementById('resultado').style.display = 'none';
+    }
+  </script>
+</body>
+</html>
