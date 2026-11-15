@@ -23,6 +23,7 @@
     button:active { opacity: 0.9; }
     .btn-sec { background: #475569; }
     .btn-green { background: #059669; }
+    .btn-yellow { background: #d97706; }
     .btn-red { background: #dc2626; }
     .btn-sm { padding: 6px 10px; font-size: 12px; width: auto; margin-top: 0; }
     .hidden { display: none !important; }
@@ -113,7 +114,7 @@
       <button class="tab-btn active" onclick="cambiarTab('tabEscaner', this)">📷 Escáner</button>
       <button class="tab-btn" onclick="cambiarTab('tabLista', this)">👥 Asistentes</button>
       <button class="tab-btn" onclick="cambiarTab('tabStats', this)">📊 Aforo y Stats</button>
-      <button id="btnTabAdmin" class="tab-btn hidden" onclick="cambiarTab('tabAdmin', this)">⚙️ Admin & Horas</button>
+      <button id="btnTabAdmin" class="tab-btn hidden" onclick="cambiarTab('tabAdmin', this)">⚙️ Admin & Reportes</button>
     </div>
 
     <!-- PESTAÑA 1: ESCÁNER -->
@@ -210,11 +211,11 @@
       </div>
     </div>
 
-    <!-- PESTAÑA 4: ADMIN (CONFIGURAR HORAS, MULTAS Y BORRADO) -->
+    <!-- PESTAÑA 4: ADMIN (CONFIGURAR HORAS, REPORTES INDIVIDUALES Y BORRADO) -->
     <div id="tabAdmin" class="tab-content hidden">
       <div class="card">
         <h3>Panel de Administración y Horas Límite</h3>
-        <p style="font-size: 13px; color: var(--muted);">Configura las horas de cierre. A partir de esta hora, cada minuto de retraso genera una multa automática de **$700 COP**.</p>
+        <p style="font-size: 13px; color: var(--muted);">Configura las horas de cierre. Cada minuto tarde genera multa automática de **$700 COP**.</p>
         
         <div style="margin-top: 12px; background: #0f172a; padding: 12px; border-radius: 10px; border: 1px solid #334155;">
           <h4 style="font-size: 14px; margin-bottom: 8px;">🕒 Definir Hora Límite para el Momento Activo</h4>
@@ -234,14 +235,24 @@
           </div>
         </div>
 
-        <div style="margin-top: 16px;">
+        <div style="margin-top: 18px; border-top: 1px solid #334155; padding-top: 14px;">
+          <h4>📥 Centro de Descargas y Reportes (Excel / CSV)</h4>
+          <p style="font-size: 12px; color: var(--muted); margin-bottom: 10px;">Selecciona el reporte exacto que deseas descargar de forma independiente:</p>
+          
+          <button onclick="exportarCSV('TODOS')" class="btn-green">📄 Descargar Reporte General Completo</button>
+          <button onclick="exportarCSV('MULTAS')" class="btn-yellow">⚠️ Descargar Solo Reporte de Multas y Retrasos</button>
+          <button onclick="exportarCSV('D1')" class="btn-sec">📅 Descargar Solo Sábado (Día 1)</button>
+          <button onclick="exportarCSV('D2')" class="btn-sec">📅 Descargar Solo Domingo (Día 2)</button>
+          <button onclick="exportarCSV('D3')" class="btn-sec">📅 Descargar Solo Lunes (Día 3)</button>
+        </div>
+
+        <div style="margin-top: 18px;">
           <h4>Historial Completo en Tiempo Real (<span id="totalRegistrosAdmin">0</span>)</h4>
-          <div id="listaAdminRegistros" style="max-height: 35vh; overflow-y: auto; margin-top: 8px;"></div>
+          <div id="listaAdminRegistros" style="max-height: 30vh; overflow-y: auto; margin-top: 8px;"></div>
         </div>
 
         <div style="margin-top: 20px; border-top: 1px solid #334155; padding-top: 14px;">
-          <button onclick="exportarCSV()" class="btn-green">📥 Descargar Reporte Excel con Multas (CSV)</button>
-          <button onclick="limpiarTodoHistorial()" class="btn-red" style="margin-top: 10px;">⚠️ Borrar Todo el Historial en la Nube</button>
+          <button onclick="limpiarTodoHistorial()" class="btn-red">⚠️ Borrar Todo el Historial en la Nube</button>
         </div>
       </div>
     </div>
@@ -333,7 +344,6 @@
   }
 
   window.onload = function() {
-    // Sincronización en tiempo real con Firestore con soporte Offline automático
     db.collection("registros_conal").orderBy("timestamp", "desc").onSnapshot((snapshot) => {
       historialRegistros = [];
       snapshot.forEach((doc) => {
@@ -343,7 +353,7 @@
       if (!document.getElementById('tabLista').classList.contains('hidden')) renderizarLista();
       if (!document.getElementById('tabAdmin').classList.contains('hidden')) renderizarAdminRegistros();
     }, (error) => {
-      console.warn("Modo Offline activo (leyendo caché local):", error);
+      console.warn("Modo Offline activo:", error);
     });
 
     fetch('asistentes.json')
@@ -442,7 +452,6 @@
     const cedula = String(codigoCrudo).trim();
     const ahoraMs = Date.now();
 
-    // Debounce anti-duplicados por error de cámara (3 segundos)
     if (cedula === ultimoEscaneoCedula && (ahoraMs - ultimoEscaneoTiempo) < 3000) {
       return;
     }
@@ -469,7 +478,6 @@
       return;
     }
 
-    // Cálculo de retraso y multas ($700 COP por minuto)
     const ahoraObj = new Date();
     const horaActualMinutos = ahoraObj.getHours() * 60 + ahoraObj.getMinutes();
     
@@ -618,7 +626,6 @@
   function actualizarEstadisticas() {
     const diaFiltro = document.getElementById('selectorDiaStats').value;
     
-    // Filtrar registros según el día seleccionado (D1, D2, D3 o TODOS)
     const registrosFiltrados = historialRegistros.filter(r => {
       if (diaFiltro === "TODOS") return true;
       return r.momento.startsWith(diaFiltro);
@@ -693,22 +700,40 @@
   }
 
   function eliminarRegistroNube(firestoreId) {
-    if (confirm("¿Estás seguro de borrar este registro de la nube? La persona podrá volver a ser leída.")) {
+    if (confirm("¿Estás seguro de borrar este registro de la nube?")) {
       db.collection("registros_conal").doc(firestoreId).delete()
-        .then(() => {
-          alert("Registro eliminado de la nube.");
-        })
-        .catch((error) => {
-          alert("Error al eliminar: " + error.message);
-        });
+        .then(() => alert("Registro eliminado."))
+        .catch((error) => alert("Error: " + error.message));
     }
   }
 
-  function exportarCSV() {
+  // FUNCIÓN MULTIPLES DESCARGAS SEGMENTADAS
+  function exportarCSV(tipoReporte) {
     if (historialRegistros.length === 0) return alert("No hay registros para exportar.");
-    
+
+    let datosAExportar = historialRegistros;
+    let sufijoNombre = "General";
+
+    if (tipoReporte === "MULTAS") {
+      datosAExportar = historialRegistros.filter(r => (r.multaCOP || 0) > 0);
+      sufijoNombre = "SoloMultas";
+      if (datosAExportar.length === 0) return alert("No hay registros con multas registradas.");
+    } else if (tipoReporte === "D1") {
+      datosAExportar = historialRegistros.filter(r => r.momento.startsWith("D1"));
+      sufijoNombre = "Sabado_Dia1";
+      if (datosAExportar.length === 0) return alert("No hay registros para el Sábado.");
+    } else if (tipoReporte === "D2") {
+      datosAExportar = historialRegistros.filter(r => r.momento.startsWith("D2"));
+      sufijoNombre = "Domingo_Dia2";
+      if (datosAExportar.length === 0) return alert("No hay registros para el Domingo.");
+    } else if (tipoReporte === "D3") {
+      datosAExportar = historialRegistros.filter(r => r.momento.startsWith("D3"));
+      sufijoNombre = "Lunes_Dia3";
+      if (datosAExportar.length === 0) return alert("No hay registros para el Lunes.");
+    }
+
     let csv = "\uFEFFFECHA;HORA;MOMENTO;CEDULA;NOMBRE;CORTE;RESTRICCION;OPERADOR;MINUTOS_RETRASO;VALOR_MULTA_COP\n";
-    historialRegistros.forEach(r => {
+    datosAExportar.forEach(r => {
       csv += `${r.fecha};${r.hora};"${r.momentoNombre}";${r.cedula};"${r.nombre}";"${r.corte}";"${r.restriccion}";"${r.operador || 'admin'}";${r.retrasoMinutos || 0};${r.multaCOP || 0}\n`;
     });
 
@@ -716,12 +741,12 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `Reporte_CONAL2026_ConMultas_${new Date().toISOString().slice(0,10)}.csv`;
+    a.download = `Reporte_CONAL2026_${sufijoNombre}_${new Date().toISOString().slice(0,10)}.csv`;
     a.click();
   }
 
   function limpiarTodoHistorial() {
-    if (confirm("⚠️ ADVERTENCIA: ¿Deseas borrar TODOS los registros de la base de datos en la nube? Esto vaciará el aforo.")) {
+    if (confirm("⚠️ ADVERTENCIA: ¿Deseas borrar TODOS los registros de la base de datos en la nube?")) {
       db.collection("registros_conal").get().then((querySnapshot) => {
         const batch = db.batch();
         querySnapshot.forEach((doc) => {
