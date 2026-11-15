@@ -74,6 +74,7 @@
     .tags-mov { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
     .tag { font-size: 10px; background: #065f46; color: #a7f3d0; padding: 2px 6px; border-radius: 4px; }
     .tag-multa { background: #78350f; color: #fef3c7; }
+    .box-panel { margin-top: 14px; background: #0f172a; padding: 14px; border-radius: 10px; border: 1px solid #334155; }
   </style>
 </head>
 <body>
@@ -100,9 +101,7 @@
   <!-- APLICACIÓN PRINCIPAL -->
   <div id="appScreen" class="hidden">
     <div class="brand-header">
-      <img id="logoConalImg" src="CONAL%202026.png" alt="Logo CONAL 2026" class="logo-img" onerror="this.style.display='none'; document.getElementById('fallbackLogo').style.display='block';">
-      <div id="fallbackLogo" class="brand-fallback" style="display:none;">🌿 CONAL MEDELLÍN 2026</div>
-      
+      <img id="logoConalImg" src="logo-conal.png" alt="Logo CONAL 2026" class="logo-img" onerror="this.onerror=null; this.src='CONAL%202026.png';">
       <div class="topbar">
         <span>Usuario: <strong id="userLogLabel"></strong> <span id="badgeRol" class="badge-rol"></span></span>
         <button onclick="cerrarSesion()" class="btn-sec btn-sm">Salir</button>
@@ -211,14 +210,15 @@
       </div>
     </div>
 
-    <!-- PESTAÑA 4: ADMIN (CONFIGURAR HORAS, REPORTES INDIVIDUALES Y BORRADO) -->
+    <!-- PESTAÑA 4: ADMIN (HORAS LÍMITE, EXPORTACIÓN A LA CARTA Y BORRADO) -->
     <div id="tabAdmin" class="tab-content hidden">
       <div class="card">
-        <h3>Panel de Administración y Horas Límite</h3>
-        <p style="font-size: 13px; color: var(--muted);">Configura las horas de cierre. Cada minuto tarde genera multa automática de **$700 COP**.</p>
+        <h3>Panel de Administración y Control</h3>
+        <p style="font-size: 13px; color: var(--muted);">Configura las horas de cierre. A partir de esa hora, cada minuto tarde genera multa automática de <strong>$700 COP</strong>.</p>
         
-        <div style="margin-top: 12px; background: #0f172a; padding: 12px; border-radius: 10px; border: 1px solid #334155;">
-          <h4 style="font-size: 14px; margin-bottom: 8px;">🕒 Definir Hora Límite para el Momento Activo</h4>
+        <!-- BLOQUE 1: HORAS LÍMITE -->
+        <div class="box-panel">
+          <h4 style="font-size: 14px; margin-bottom: 8px;">🕒 1. Definir Hora Límite por Momento</h4>
           <select id="adminMomentoSelect" onchange="cargarHoraLimiteEnInput()">
             <option value="D1-INGRESO">Sábado - Ingreso General</option>
             <option value="D1-REF1">Sábado - Refrigerio 1</option>
@@ -235,17 +235,40 @@
           </div>
         </div>
 
-        <div style="margin-top: 18px; border-top: 1px solid #334155; padding-top: 14px;">
-          <h4>📥 Centro de Descargas y Reportes (Excel / CSV)</h4>
-          <p style="font-size: 12px; color: var(--muted); margin-bottom: 10px;">Selecciona el reporte exacto que deseas descargar de forma independiente:</p>
+        <!-- BLOQUE 2: CENTRO DE DESCARGAS A LA CARTA -->
+        <div class="box-panel">
+          <h4 style="font-size: 14px; margin-bottom: 6px;">📥 2. Descargar Reportes en Excel (CSV)</h4>
+          <p style="font-size: 12px; color: var(--muted); margin: 0 0 8px 0;">Elige exactamente qué datos quieres descargar:</p>
           
-          <button onclick="exportarCSV('TODOS')" class="btn-green">📄 Descargar Reporte General Completo</button>
-          <button onclick="exportarCSV('MULTAS')" class="btn-yellow">⚠️ Descargar Solo Reporte de Multas y Retrasos</button>
-          <button onclick="exportarCSV('D1')" class="btn-sec">📅 Descargar Solo Sábado (Día 1)</button>
-          <button onclick="exportarCSV('D2')" class="btn-sec">📅 Descargar Solo Domingo (Día 2)</button>
-          <button onclick="exportarCSV('D3')" class="btn-sec">📅 Descargar Solo Lunes (Día 3)</button>
+          <select id="selectorTipoDescarga">
+            <option value="TODOS">📄 Todo el Historial Completo (Todos los días)</option>
+            <option value="MULTAS">⚠️ Solo Personas con Multas / Retrasos</option>
+            <optgroup label="Por Día Completo">
+              <option value="D1">📅 Solo Sábado Completo (Día 1)</option>
+              <option value="D2">📅 Solo Domingo Completo (Día 2)</option>
+              <option value="D3">📅 Solo Lunes Completo (Día 3)</option>
+            </optgroup>
+            <optgroup label="Por Momento Específico">
+              <option value="D1-INGRESO">Sábado - Ingreso General</option>
+              <option value="D1-REF1">Sábado - Refrigerio 1</option>
+              <option value="D1-REF2">Sábado - Refrigerio 2</option>
+              <option value="D2-INGRESO">Domingo - Ingreso General</option>
+              <option value="D2-REF1">Domingo - Refrigerio 1</option>
+              <option value="D2-REF2">Domingo - Refrigerio 2</option>
+              <option value="D3-INGRESO">Lunes - Ingreso General</option>
+              <option value="D3-REF1">Lunes - Refrigerio Único</option>
+            </optgroup>
+            <optgroup label="Auditoría de Faltantes">
+              <option value="INASISTENTES_D1">🚫 Faltantes al Ingreso del Sábado</option>
+              <option value="INASISTENTES_D2">🚫 Faltantes al Ingreso del Domingo</option>
+              <option value="INASISTENTES_D3">🚫 Faltantes al Ingreso del Lunes</option>
+            </optgroup>
+          </select>
+
+          <button onclick="descargarReporteSeleccionado()" class="btn-green">⬇️ Descargar Archivo Excel Seleccionado</button>
         </div>
 
+        <!-- BLOQUE 3: HISTORIAL EN VIVO -->
         <div style="margin-top: 18px;">
           <h4>Historial Completo en Tiempo Real (<span id="totalRegistrosAdmin">0</span>)</h4>
           <div id="listaAdminRegistros" style="max-height: 30vh; overflow-y: auto; margin-top: 8px;"></div>
@@ -707,41 +730,51 @@
     }
   }
 
-  // FUNCIÓN MULTIPLES DESCARGAS SEGMENTADAS
-  function exportarCSV(tipoReporte) {
-    if (historialRegistros.length === 0) return alert("No hay registros para exportar.");
+  // FUNCIÓN DE DESCARGA A LA CARTA
+  function descargarReporteSeleccionado() {
+    const tipo = document.getElementById('selectorTipoDescarga').value;
+    let csv = "";
+    let nombreArchivo = `Reporte_CONAL2026_${tipo}_${new Date().toISOString().slice(0,10)}.csv`;
 
-    let datosAExportar = historialRegistros;
-    let sufijoNombre = "General";
+    // Caso especial: Inasistentes / Faltantes
+    if (tipo.startsWith("INASISTENTES_")) {
+      const dia = tipo.split("_")[1]; // D1, D2 o D3
+      const momentoIngreso = `${dia}-INGRESO`;
+      const cedulasPresentes = new Set(historialRegistros.filter(r => r.momento === momentoIngreso).map(r => String(r.cedula).trim()));
+      const faltantes = baseAsistentes.filter(a => !cedulasPresentes.has(String(a.cedula).trim()));
 
-    if (tipoReporte === "MULTAS") {
-      datosAExportar = historialRegistros.filter(r => (r.multaCOP || 0) > 0);
-      sufijoNombre = "SoloMultas";
-      if (datosAExportar.length === 0) return alert("No hay registros con multas registradas.");
-    } else if (tipoReporte === "D1") {
-      datosAExportar = historialRegistros.filter(r => r.momento.startsWith("D1"));
-      sufijoNombre = "Sabado_Dia1";
-      if (datosAExportar.length === 0) return alert("No hay registros para el Sábado.");
-    } else if (tipoReporte === "D2") {
-      datosAExportar = historialRegistros.filter(r => r.momento.startsWith("D2"));
-      sufijoNombre = "Domingo_Dia2";
-      if (datosAExportar.length === 0) return alert("No hay registros para el Domingo.");
-    } else if (tipoReporte === "D3") {
-      datosAExportar = historialRegistros.filter(r => r.momento.startsWith("D3"));
-      sufijoNombre = "Lunes_Dia3";
-      if (datosAExportar.length === 0) return alert("No hay registros para el Lunes.");
+      if (faltantes.length === 0) return alert("¡Excelente! No hay faltantes para ese ingreso.");
+
+      csv = "\uFEFFESTADO;CEDULA;NOMBRE;CORTE;RESTRICCION_ALIMENTARIA\n";
+      faltantes.forEach(a => {
+        csv += `PENDIENTE / NO ASISTIO;${a.cedula};"${a.nombre}";"${a.corte}";"${a.restriccion || 'Sin restricciones'}"\n`;
+      });
+    } else {
+      // Registros filtrados
+      let datos = historialRegistros;
+
+      if (tipo === "MULTAS") {
+        datos = historialRegistros.filter(r => (r.multaCOP || 0) > 0);
+      } else if (tipo === "D1" || tipo === "D2" || tipo === "D3") {
+        datos = historialRegistros.filter(r => r.momento.startsWith(tipo));
+      } else if (tipo !== "TODOS") {
+        // Es un momento específico (ej. D1-REF1)
+        datos = historialRegistros.filter(r => r.momento === tipo);
+      }
+
+      if (datos.length === 0) return alert("No hay registros guardados bajo el filtro seleccionado.");
+
+      csv = "\uFEFFFECHA;HORA;MOMENTO;CEDULA;NOMBRE;CORTE;RESTRICCION;OPERADOR;MINUTOS_RETRASO;VALOR_MULTA_COP\n";
+      datos.forEach(r => {
+        csv += `${r.fecha};${r.hora};"${r.momentoNombre}";${r.cedula};"${r.nombre}";"${r.corte}";"${r.restriccion}";"${r.operador || 'admin'}";${r.retrasoMinutos || 0};${r.multaCOP || 0}\n`;
+      });
     }
-
-    let csv = "\uFEFFFECHA;HORA;MOMENTO;CEDULA;NOMBRE;CORTE;RESTRICCION;OPERADOR;MINUTOS_RETRASO;VALOR_MULTA_COP\n";
-    datosAExportar.forEach(r => {
-      csv += `${r.fecha};${r.hora};"${r.momentoNombre}";${r.cedula};"${r.nombre}";"${r.corte}";"${r.restriccion}";"${r.operador || 'admin'}";${r.retrasoMinutos || 0};${r.multaCOP || 0}\n`;
-    });
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `Reporte_CONAL2026_${sufijoNombre}_${new Date().toISOString().slice(0,10)}.csv`;
+    a.download = nombreArchivo;
     a.click();
   }
 
