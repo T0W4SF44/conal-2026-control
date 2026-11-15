@@ -3,8 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CONAL 2026 - Control Maestro</title>
+  <title>CONAL 2026 - Centro de Mando en Red</title>
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <!-- Importar Firebase SDK (Compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
   <style>
     :root {
       --bg: #0f172a; --card: #1e293b; --input: #334155; --primary: #3b82f6;
@@ -95,8 +98,7 @@
   <!-- APLICACIÓN PRINCIPAL -->
   <div id="appScreen" class="hidden">
     <div class="brand-header">
-      <!-- LOGO OFICIAL DE CONAL (Asegúrate de subir tu imagen con el nombre logo-conal.png a GitHub) -->
-      <img id="logoConalImg" src="logo-conal.png" alt="Logo CONAL 2026" class="logo-img" onerror="this.style.display='none'; document.getElementById('fallbackLogo').style.display='block';">
+      <img id="logoConalImg" src="CONAL%202026.png" alt="Logo CONAL 2026" class="logo-img" onerror="this.style.display='none'; document.getElementById('fallbackLogo').style.display='block';">
       <div id="fallbackLogo" class="brand-fallback" style="display:none;">🌿 CONAL MEDELLÍN 2026</div>
       
       <div class="topbar">
@@ -196,16 +198,16 @@
     <div id="tabAdmin" class="tab-content hidden">
       <div class="card">
         <h3>Panel de Administración y Corrección</h3>
-        <p style="font-size: 13px; color: var(--muted);">Aquí puedes ver todos los registros y eliminar lecturas erróneas o de prueba hechas antes del evento.</p>
+        <p style="font-size: 13px; color: var(--muted);">Aquí puedes ver todos los registros en la nube y eliminar lecturas erróneas.</p>
         
         <div style="margin-top: 14px;">
-          <h4>Historial Completo de Registros (<span id="totalRegistrosAdmin">0</span>)</h4>
+          <h4>Historial Completo en Tiempo Real (<span id="totalRegistrosAdmin">0</span>)</h4>
           <div id="listaAdminRegistros" style="max-height: 40vh; overflow-y: auto; margin-top: 8px;"></div>
         </div>
 
         <div style="margin-top: 20px; border-top: 1px solid #334155; padding-top: 14px;">
           <button onclick="exportarCSV()" class="btn-green">📥 Descargar Respaldo Excel (CSV)</button>
-          <button onclick="limpiarTodoHistorial()" class="btn-red" style="margin-top: 10px;">⚠️ Borrar Todo el Historial (Reinicio General)</button>
+          <button onclick="limpiarTodoHistorial()" class="btn-red" style="margin-top: 10px;">⚠️ Borrar Todo el Historial en la Nube</button>
         </div>
       </div>
     </div>
@@ -213,6 +215,22 @@
 </div>
 
 <script>
+  // ================= CONFIGURACIÓN REAL DE FIREBASE =================
+  const firebaseConfig = {
+    apiKey: "AIzaSyDMKyx5pFh6XFsCJccJHlqJixeYUyI5KCA",
+    authDomain: "conal-2026-control.firebaseapp.com",
+    projectId: "conal-2026-control",
+    storageBucket: "conal-2026-control.firebasestorage.app",
+    messagingSenderId: "1069062725584",
+    appId: "1:1069062725584:web:e4663b10411ef23e72e3d5",
+    measurementId: "G-YR9EQRC60D"
+  };
+  // ==================================================================
+
+  // Inicializar Firebase
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
   let baseAsistentes = [];
   let historialRegistros = [];
   let usuarioLogueado = "";
@@ -273,8 +291,16 @@
   }
 
   window.onload = function() {
-    const histGuardado = localStorage.getItem('conal2026_historial');
-    if (histGuardado) historialRegistros = JSON.parse(histGuardado);
+    // Sincronización en tiempo real con Firestore
+    db.collection("registros_conal").orderBy("timestamp", "desc").onSnapshot((snapshot) => {
+      historialRegistros = [];
+      snapshot.forEach((doc) => {
+        historialRegistros.push({ firestoreId: doc.id, ...doc.data() });
+      });
+      if (!document.getElementById('tabStats').classList.contains('hidden')) actualizarEstadisticas();
+      if (!document.getElementById('tabLista').classList.contains('hidden')) renderizarLista();
+      if (!document.getElementById('tabAdmin').classList.contains('hidden')) renderizarAdminRegistros();
+    });
 
     fetch('asistentes.json')
       .then(res => res.json())
@@ -374,7 +400,7 @@
     const tieneAlertaComida = restriccion !== "Sin restricciones" && !["ninguna", "no aplica", "nada", "."].includes(restriccion.toLowerCase());
 
     const nuevoReg = {
-      id: Date.now() + "_" + Math.random(),
+      timestamp: Date.now(),
       fecha: fechaStr,
       hora: horaStr,
       momento: momento,
@@ -382,18 +408,22 @@
       cedula: cedula,
       nombre: asistente.nombre,
       corte: asistente.corte,
-      restriccion: restriccion
+      restriccion: restriccion,
+      operador: usuarioLogueado
     };
 
-    historialRegistros.unshift(nuevoReg);
-    localStorage.setItem('conal2026_historial', JSON.stringify(historialRegistros));
-
-    let detalleAlerta = `Momento: ${momentoNombre}`;
-    if (tieneAlertaComida) {
-      detalleAlerta += ` | 🍽️ ALERTA ALIMENTARIA: ${restriccion}`;
-    }
-
-    mostrarAlertaFull("VERDE", "✅ PUEDE PASAR", asistente.nombre, `Corte: ${asistente.corte}`, detalleAlerta);
+    db.collection("registros_conal").add(nuevoReg)
+      .then(() => {
+        let detalleAlerta = `Momento: ${momentoNombre}`;
+        if (tieneAlertaComida) {
+          detalleAlerta += ` | 🍽️ ALERTA ALIMENTARIA: ${restriccion}`;
+        }
+        mostrarAlertaFull("VERDE", "✅ PUEDE PASAR", asistente.nombre, `Corte: ${asistente.corte}`, detalleAlerta);
+      })
+      .catch((error) => {
+        alert("Error al guardar en la nube: " + error.message);
+        bloqueado = false;
+      });
   }
 
   function mostrarAlertaFull(tipo, titulo, nombre, corte, detalles) {
@@ -500,13 +530,13 @@
 
     const divHist = document.getElementById('historialReciente');
     if (historialRegistros.length === 0) {
-      divHist.innerHTML = `<p style="color:var(--muted);">Aún no hay escaneos registrados.</p>`;
+      divHist.innerHTML = `<p style="color:var(--muted);">Aún no hay escaneos registrados en la nube.</p>`;
     } else {
       divHist.innerHTML = historialRegistros.slice(0, 15).map(r => `
         <div class="stat-row">
           <div>
             <strong>${r.nombre}</strong><br>
-            <span style="color:var(--muted); font-size:11px;">${r.momentoNombre} • ${r.corte}</span>
+            <span style="color:var(--muted); font-size:11px;">${r.momentoNombre} • ${r.corte} (Op: ${r.operador || 'admin'})</span>
           </div>
           <div style="text-align:right;">
             <span>${r.hora}</span>
@@ -521,7 +551,7 @@
     const contenedor = document.getElementById('listaAdminRegistros');
 
     if (historialRegistros.length === 0) {
-      contenedor.innerHTML = `<p style="color:var(--muted); font-size:13px;">No hay registros guardados.</p>`;
+      contenedor.innerHTML = `<p style="color:var(--muted); font-size:13px;">No hay registros en la nube.</p>`;
       return;
     }
 
@@ -529,30 +559,33 @@
       <div class="item-asistente">
         <div class="item-info">
           <div class="item-nombre">${r.nombre} (CC: ${r.cedula})</div>
-          <div class="item-meta">📌 ${r.momentoNombre} • 🕒 ${r.fecha} ${r.hora}</div>
+          <div class="item-meta">📌 ${r.momentoNombre} • 🕒 ${r.fecha} ${r.hora} (Op: ${r.operador || 'admin'})</div>
         </div>
         <div>
-          <button class="btn-sm btn-red" onclick="eliminarRegistroIndividual('${r.id}')">Borrar</button>
+          <button class="btn-sm btn-red" onclick="eliminarRegistroNube('${r.firestoreId}')">Borrar</button>
         </div>
       </div>
     `).join('');
   }
 
-  function eliminarRegistroIndividual(id) {
-    if (confirm("¿Estás seguro de borrar este registro específico? La persona podrá volver a ser leída.")) {
-      historialRegistros = historialRegistros.filter(r => r.id !== id);
-      localStorage.setItem('conal2026_historial', JSON.stringify(historialRegistros));
-      renderizarAdminRegistros();
-      alert("Registro eliminado correctamente.");
+  function eliminarRegistroNube(firestoreId) {
+    if (confirm("¿Estás seguro de borrar este registro de la nube? La persona podrá volver a ser leída.")) {
+      db.collection("registros_conal").doc(firestoreId).delete()
+        .then(() => {
+          alert("Registro eliminado de la nube.");
+        })
+        .catch((error) => {
+          alert("Error al eliminar: " + error.message);
+        });
     }
   }
 
   function exportarCSV() {
     if (historialRegistros.length === 0) return alert("No hay registros para exportar.");
     
-    let csv = "\uFEFFFECHA;HORA;MOMENTO;CEDULA;NOMBRE;CORTE;RESTRICCION\n";
+    let csv = "\uFEFFFECHA;HORA;MOMENTO;CEDULA;NOMBRE;CORTE;RESTRICCION;OPERADOR\n";
     historialRegistros.forEach(r => {
-      csv += `${r.fecha};${r.hora};"${r.momentoNombre}";${r.cedula};"${r.nombre}";"${r.corte}";"${r.restriccion}"\n`;
+      csv += `${r.fecha};${r.hora};"${r.momentoNombre}";${r.cedula};"${r.nombre}";"${r.corte}";"${r.restriccion}";"${r.operador || 'admin'}"\n`;
     });
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -564,11 +597,18 @@
   }
 
   function limpiarTodoHistorial() {
-    if (confirm("¿ADVERTENCIA: Deseas vaciar absolutamente todo el historial de escaneos? Úsalo para limpiar pruebas antes del evento.")) {
-      historialRegistros = [];
-      localStorage.removeItem('conal2026_historial');
-      renderizarAdminRegistros();
-      alert("Historial vaciado por completo.");
+    if (confirm("⚠️ ADVERTENCIA: ¿Deseas borrar TODOS los registros de la base de datos en la nube? Esto vaciará el aforo.")) {
+      db.collection("registros_conal").get().then((querySnapshot) => {
+        const batch = db.batch();
+        querySnapshot.forEach((doc) => {
+          batch.delete(doc.ref);
+        });
+        return batch.commit();
+      }).then(() => {
+        alert("Base de datos en la nube vaciada por completo.");
+      }).catch((error) => {
+        alert("Error al limpiar: " + error.message);
+      });
     }
   }
 </script>
