@@ -18,7 +18,7 @@
     .container { max-width: 650px; margin: 0 auto; padding-bottom: 40px; }
     .card { background: var(--card); padding: 18px; border-radius: 14px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); margin-bottom: 16px; }
     h2, h3, h4 { margin: 0 0 10px 0; }
-    input, select { width: 100%; padding: 12px; margin: 6px 0; border-radius: 8px; border: 1px solid #475569; font-size: 15px; background: var(--input); color: white; }
+    input, select, textarea { width: 100%; padding: 12px; margin: 6px 0; border-radius: 8px; border: 1px solid #475569; font-size: 15px; background: var(--input); color: white; }
     button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 8px; }
     button:active { opacity: 0.9; }
     .btn-sec { background: #475569; }
@@ -28,11 +28,11 @@
     .btn-sm { padding: 6px 10px; font-size: 12px; width: auto; margin-top: 0; }
     .hidden { display: none !important; }
 
-    /* Header & Logo Institucional */
-    .brand-header { background: var(--card); padding: 16px; border-radius: 14px; text-align: center; margin-bottom: 14px; border: 1px solid #334155; }
-    .logo-img { max-height: 70px; width: auto; margin-bottom: 6px; object-fit: contain; }
-    .brand-fallback { font-size: 24px; font-weight: 900; background: linear-gradient(45deg, #3b82f6, #10b981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .topbar { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 13px; color: var(--muted); border-top: 1px solid #334155; padding-top: 8px; }
+    /* Header & Logo Institucional en Gran Tamaño */
+    .brand-header { background: var(--card); padding: 20px 16px; border-radius: 14px; text-align: center; margin-bottom: 14px; border: 1px solid #334155; }
+    .logo-img { max-height: 120px; width: 100%; max-width: 320px; margin-bottom: 8px; object-fit: contain; display: inline-block; }
+    .brand-fallback { font-size: 28px; font-weight: 900; background: linear-gradient(45deg, #3b82f6, #10b981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font-size: 13px; color: var(--muted); border-top: 1px solid #334155; padding-top: 10px; }
     .badge-rol { background: var(--primary); color: white; padding: 2px 8px; border-radius: 12px; font-weight: bold; }
 
     /* Navegación */
@@ -75,6 +75,12 @@
     .tag { font-size: 10px; background: #065f46; color: #a7f3d0; padding: 2px 6px; border-radius: 4px; }
     .tag-multa { background: #78350f; color: #fef3c7; }
     .box-panel { margin-top: 14px; background: #0f172a; padding: 14px; border-radius: 10px; border: 1px solid #334155; }
+    
+    /* Modal de Infracciones / Multas Manuales */
+    #modalInfraccion {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8);
+      z-index: 9998; display: none; justify-content: center; align-items: center; padding: 16px;
+    }
   </style>
 </head>
 <body>
@@ -86,6 +92,45 @@
   <div id="alertCorte" class="alert-body"></div>
   <div id="alertDetails" class="alert-sub"></div>
   <div style="margin-top: 20px; font-size: 13px; opacity: 0.8;">(Toca en cualquier parte para continuar)</div>
+</div>
+
+<!-- MODAL DE INFRACCIONES Y MULTAS MANUALES -->
+<div id="modalInfraccion">
+  <div class="card" style="width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto;">
+    <h3>⚠️ Registrar Infracción / Multa</h3>
+    <p id="modalAsistenteInfo" style="font-size: 13px; color: var(--muted); margin-bottom: 10px;"></p>
+    
+    <label style="font-size: 12px;">Selecciona el Concepto de Infracción:</label>
+    <select id="selectConceptoInfraccion" onchange="cambiarConceptoInfraccion()">
+      <option value="KIT_EXTEMPORANEO">No acreditación y reclamación extemporánea kit ($1.000/min)</option>
+      <option value="VISITA_INDUSTRIAL">Inasistencia injustificada a visita industrial ($40.000)</option>
+      <option value="ESPACIO_ACTIVIDAD">Inasistencia injustificada a espacio/actividad ($55.000)</option>
+      <option value="ZONAS_ALTERNAS">Uso de zonas alternas fuera de horario ($165.000)</option>
+      <option value="FUERA_INSTALACIONES">Fuera de instalaciones en horario no permitido ($175.000)</option>
+      <option value="VESTIMENTA">Incumplir el código de vestimenta ($60.000)</option>
+      <option value="OTRA">Otra observación o multa personalizada</option>
+    </select>
+
+    <div id="divMinutosRetraso" style="margin-top: 8px;">
+      <label style="font-size: 12px;">Minutos de retraso (Calcula $1.000/min):</label>
+      <input type="number" id="inputMinutosExtemporaneo" value="0" min="0" oninput="calcularValorManual()">
+    </div>
+
+    <div style="margin-top: 8px;">
+      <label style="font-size: 12px;">Valor Total de la Multa (COP):</label>
+      <input type="number" id="inputValorMultaManual" value="0">
+    </div>
+
+    <div style="margin-top: 8px;">
+      <label style="font-size: 12px;">Observación detallada:</label>
+      <textarea id="textObservacionInfraccion" rows="2" placeholder="Escribe detalles del incidente..."></textarea>
+    </div>
+
+    <div style="display: flex; gap: 8px; margin-top: 14px;">
+      <button onclick="guardarInfraccionManual()" class="btn-green" style="margin:0;">Guardar Sanción</button>
+      <button onclick="cerrarModalInfraccion()" class="btn-sec" style="margin:0;">Cancelar</button>
+    </div>
+  </div>
 </div>
 
 <div class="container">
@@ -102,6 +147,8 @@
   <div id="appScreen" class="hidden">
     <div class="brand-header">
       <img id="logoConalImg" src="logo-conal.png" alt="Logo CONAL 2026" class="logo-img" onerror="this.onerror=null; this.src='CONAL%202026.png';">
+      <div id="fallbackLogo" class="brand-fallback" style="display:none;">🌿 CONAL MEDELLÍN 2026</div>
+      
       <div class="topbar">
         <span>Usuario: <strong id="userLogLabel"></strong> <span id="badgeRol" class="badge-rol"></span></span>
         <button onclick="cerrarSesion()" class="btn-sec btn-sm">Salir</button>
@@ -119,16 +166,34 @@
     <!-- PESTAÑA 1: ESCÁNER -->
     <div id="tabEscaner" class="tab-content">
       <div class="card">
-        <label style="font-size: 13px; color: var(--muted);">Momento activo de control:</label>
+        <label style="font-size: 13px; color: var(--muted);">Momento activo de control (21, 22 y 23 de Noviembre):</label>
         <select id="filtroMomento" onchange="actualizarHoraLimiteVisual()">
-          <option value="D1-INGRESO">Sábado - Ingreso General</option>
-          <option value="D1-REF1">Sábado - Refrigerio 1</option>
-          <option value="D1-REF2">Sábado - Refrigerio 2</option>
-          <option value="D2-INGRESO">Domingo - Ingreso General</option>
-          <option value="D2-REF1">Domingo - Refrigerio 1</option>
-          <option value="D2-REF2">Domingo - Refrigerio 2</option>
-          <option value="D3-INGRESO">Lunes - Ingreso General</option>
-          <option value="D3-REF1">Lunes - Refrigerio Único</option>
+          <optgroup label="Día 1 (21 de Noviembre)">
+            <option value="D1-ACRED1">Día 1 - Acreditación 1 (Mañana)</option>
+            <option value="D1-ACRED2">Día 1 - Acreditación 2 (Luego refrigerio)</option>
+            <option value="D1-ACRED3">Día 1 - Acreditación 3 (Luego almuerzo)</option>
+            <option value="D1-REF1">Día 1 - Refrigerio 1</option>
+            <option value="D1-REF2">Día 1 - Refrigerio 2</option>
+            <option value="D1-CENA1">Día 1 - Cena 1</option>
+          </optgroup>
+          <optgroup label="Día 2 (22 de Noviembre)">
+            <option value="D2-ACRED1">Día 2 - Acreditación 1 (Mañana)</option>
+            <option value="D2-ACRED2">Día 2 - Acreditación 2 (Luego refrigerio)</option>
+            <option value="D2-ACRED3">Día 2 - Acreditación 3 (Luego almuerzo)</option>
+            <option value="D2-ACRED4">Día 2 - Acreditación 4 (Gala)</option>
+            <option value="D2-REF3">Día 2 - Refrigerio 3</option>
+            <option value="D2-REF4">Día 2 - Refrigerio 4</option>
+            <option value="D2-DES1">Día 2 - Desayuno 1</option>
+            <option value="D2-ALM1">Día 2 - Almuerzo 1</option>
+            <option value="D2-CENA2">Día 2 - Cena 2</option>
+          </optgroup>
+          <optgroup label="Día 3 (23 de Noviembre)">
+            <option value="D3-ACRED1">Día 3 - Acreditación 1 (Mañana)</option>
+            <option value="D3-ACRED2">Día 3 - Acreditación 2 (Zorro)</option>
+            <option value="D3-REF5">Día 3 - Refrigerio 5</option>
+            <option value="D3-DES2">Día 3 - Desayuno 2</option>
+            <option value="D3-ALM2">Día 3 - Almuerzo 2</option>
+          </optgroup>
         </select>
         <div id="infoHoraLimite" style="font-size: 12px; color: var(--yellow); margin-top: 4px;"></div>
 
@@ -174,9 +239,9 @@
           <label style="font-size: 12px; color: var(--muted);">Filtrar estadísticas por Día / Jornada:</label>
           <select id="selectorDiaStats" onchange="actualizarEstadisticas()">
             <option value="TODOS">🌐 Todos los Días (General)</option>
-            <option value="D1">Sábado (Día 1)</option>
-            <option value="D2">Domingo (Día 2)</option>
-            <option value="D3">Lunes (Día 3)</option>
+            <option value="D1">Día 1 (21 Noviembre)</option>
+            <option value="D2">Día 2 (22 Noviembre)</option>
+            <option value="D3">Día 3 (23 Noviembre)</option>
           </select>
         </div>
 
@@ -210,24 +275,25 @@
       </div>
     </div>
 
-    <!-- PESTAÑA 4: ADMIN (HORAS LÍMITE, EXPORTACIÓN A LA CARTA Y BORRADO) -->
+    <!-- PESTAÑA 4: ADMIN (HORAS LÍMITE, DESCARGAS Y MÓVIL PWA) -->
     <div id="tabAdmin" class="tab-content hidden">
       <div class="card">
         <h3>Panel de Administración y Control</h3>
-        <p style="font-size: 13px; color: var(--muted);">Configura las horas de cierre. A partir de esa hora, cada minuto tarde genera multa automática de <strong>$700 COP</strong>.</p>
+        <p style="font-size: 13px; color: var(--muted);">Configura las horas de cierre de las <strong>Acreditaciones</strong> ($700 COP/min de retraso). Las comidas y refrigerios son solo de control de aforo sin multa.</p>
         
-        <!-- BLOQUE 1: HORAS LÍMITE -->
+        <!-- BLOQUE 1: HORAS LÍMITE (SOLO ACREDITACIONES) -->
         <div class="box-panel">
-          <h4 style="font-size: 14px; margin-bottom: 8px;">🕒 1. Definir Hora Límite por Momento</h4>
+          <h4 style="font-size: 14px; margin-bottom: 8px;">🕒 1. Definir Hora Límite de Acreditaciones</h4>
           <select id="adminMomentoSelect" onchange="cargarHoraLimiteEnInput()">
-            <option value="D1-INGRESO">Sábado - Ingreso General</option>
-            <option value="D1-REF1">Sábado - Refrigerio 1</option>
-            <option value="D1-REF2">Sábado - Refrigerio 2</option>
-            <option value="D2-INGRESO">Domingo - Ingreso General</option>
-            <option value="D2-REF1">Domingo - Refrigerio 1</option>
-            <option value="D2-REF2">Domingo - Refrigerio 2</option>
-            <option value="D3-INGRESO">Lunes - Ingreso General</option>
-            <option value="D3-REF1">Lunes - Refrigerio Único</option>
+            <option value="D1-ACRED1">Día 1 - Acreditación 1</option>
+            <option value="D1-ACRED2">Día 1 - Acreditación 2</option>
+            <option value="D1-ACRED3">Día 1 - Acreditación 3</option>
+            <option value="D2-ACRED1">Día 2 - Acreditación 1</option>
+            <option value="D2-ACRED2">Día 2 - Acreditación 2</option>
+            <option value="D2-ACRED3">Día 2 - Acreditación 3</option>
+            <option value="D2-ACRED4">Día 2 - Acreditación 4 (Gala)</option>
+            <option value="D3-ACRED1">Día 3 - Acreditación 1</option>
+            <option value="D3-ACRED2">Día 3 - Acreditación 2 (Zorro)</option>
           </select>
           <div style="display: flex; gap: 8px; margin-top: 6px;">
             <input type="time" id="inputHoraLimiteConfig" style="margin:0;">
@@ -237,38 +303,28 @@
 
         <!-- BLOQUE 2: CENTRO DE DESCARGAS A LA CARTA -->
         <div class="box-panel">
-          <h4 style="font-size: 14px; margin-bottom: 6px;">📥 2. Descargar Reportes en Excel (CSV)</h4>
-          <p style="font-size: 12px; color: var(--muted); margin: 0 0 8px 0;">Elige exactamente qué datos quieres descargar:</p>
-          
+          <h4 style="font-size: 14px; margin-bottom: 6px;">📥 2. Centro de Descargas en Excel (CSV)</h4>
           <select id="selectorTipoDescarga">
-            <option value="TODOS">📄 Todo el Historial Completo (Todos los días)</option>
-            <option value="MULTAS">⚠️ Solo Personas con Multas / Retrasos</option>
-            <optgroup label="Por Día Completo">
-              <option value="D1">📅 Solo Sábado Completo (Día 1)</option>
-              <option value="D2">📅 Solo Domingo Completo (Día 2)</option>
-              <option value="D3">📅 Solo Lunes Completo (Día 3)</option>
-            </optgroup>
-            <optgroup label="Por Momento Específico">
-              <option value="D1-INGRESO">Sábado - Ingreso General</option>
-              <option value="D1-REF1">Sábado - Refrigerio 1</option>
-              <option value="D1-REF2">Sábado - Refrigerio 2</option>
-              <option value="D2-INGRESO">Domingo - Ingreso General</option>
-              <option value="D2-REF1">Domingo - Refrigerio 1</option>
-              <option value="D2-REF2">Domingo - Refrigerio 2</option>
-              <option value="D3-INGRESO">Lunes - Ingreso General</option>
-              <option value="D3-REF1">Lunes - Refrigerio Único</option>
-            </optgroup>
-            <optgroup label="Auditoría de Faltantes">
-              <option value="INASISTENTES_D1">🚫 Faltantes al Ingreso del Sábado</option>
-              <option value="INASISTENTES_D2">🚫 Faltantes al Ingreso del Domingo</option>
-              <option value="INASISTENTES_D3">🚫 Faltantes al Ingreso del Lunes</option>
-            </optgroup>
+            <option value="TODOS">📄 Todo el Historial Consolidado General</option>
+            <option value="MULTAS">⚠️ Solo Reporte Financiero de Multas e Infracciones</option>
+            <option value="D1">📅 Solo Día 1 Completo (21 Noviembre)</option>
+            <option value="D2">📅 Solo Día 2 Completo (22 Noviembre)</option>
+            <option value="D3">📅 Solo Día 3 Completo (23 Noviembre)</option>
+            <option value="INASISTENTES_D1">🚫 Faltantes al Ingreso Día 1</option>
+            <option value="INASISTENTES_D2">🚫 Faltantes al Ingreso Día 2</option>
+            <option value="INASISTENTES_D3">🚫 Faltantes al Ingreso Día 3</option>
           </select>
-
           <button onclick="descargarReporteSeleccionado()" class="btn-green">⬇️ Descargar Archivo Excel Seleccionado</button>
         </div>
 
-        <!-- BLOQUE 3: HISTORIAL EN VIVO -->
+        <!-- BLOQUE 3: GUÍA PARA FIJAR COMO APP EN CELULAR -->
+        <div class="box-panel" style="border-color: #3b82f6;">
+          <h4 style="font-size: 14px; margin-bottom: 6px; color: #60a5fa;">📱 Cómo instalar esta web como App Móvil</h4>
+          <p style="font-size: 12px; color: var(--muted); margin: 0 0 6px 0;"><strong>En Android (Chrome):</strong> Toca los 3 puntos arriba a la derecha y selecciona "Instalar aplicación" o "Agregar a pantalla principal".</p>
+          <p style="font-size: 12px; color: var(--muted); margin: 0;"><strong>En iPhone (Safari):</strong> Toca el botón Compartir (cuadrado con flecha) y selecciona "Agregar a inicio".</p>
+        </div>
+
+        <!-- BLOQUE 4: HISTORIAL EN VIVO -->
         <div style="margin-top: 18px;">
           <h4>Historial Completo en Tiempo Real (<span id="totalRegistrosAdmin">0</span>)</h4>
           <div id="listaAdminRegistros" style="max-height: 30vh; overflow-y: auto; margin-top: 8px;"></div>
@@ -301,9 +357,7 @@
   let baseAsistentes = [];
   let historialRegistros = [];
   let horasLimites = JSON.parse(localStorage.getItem('conal2026_horas_limites')) || {
-    "D1-INGRESO": "08:30", "D1-REF1": "10:30", "D1-REF2": "16:00",
-    "D2-INGRESO": "08:30", "D2-REF1": "10:30", "D2-REF2": "16:00",
-    "D3-INGRESO": "09:00", "D3-REF1": "11:00"
+    "D1-ACRED1": "08:30", "D2-ACRED1": "08:30", "D3-ACRED1": "09:00"
   };
 
   let usuarioLogueado = "";
@@ -314,6 +368,7 @@
   let timerAlertaFull = null;
   let ultimoEscaneoCedula = "";
   let ultimoEscaneoTiempo = 0;
+  let asistenteActualPendiente = null;
 
   const USUARIOS_VALIDOS = {
     "admin": { pass: "conal2026admin", rol: "ADMIN" },
@@ -324,14 +379,26 @@
   };
 
   const NOMBRES_MOMENTOS = {
-    "D1-INGRESO": "Sábado - Ingreso General",
-    "D1-REF1": "Sábado - Refrigerio 1",
-    "D1-REF2": "Sábado - Refrigerio 2",
-    "D2-INGRESO": "Domingo - Ingreso General",
-    "D2-REF1": "Domingo - Refrigerio 1",
-    "D2-REF2": "Domingo - Refrigerio 2",
-    "D3-INGRESO": "Lunes - Ingreso General",
-    "D3-REF1": "Lunes - Refrigerio Único"
+    "D1-ACRED1": "Día 1 - Acreditación 1 (Mañana)",
+    "D1-ACRED2": "Día 1 - Acreditación 2 (Luego refrigerio)",
+    "D1-ACRED3": "Día 1 - Acreditación 3 (Luego almuerzo)",
+    "D1-REF1": "Día 1 - Refrigerio 1",
+    "D1-REF2": "Día 1 - Refrigerio 2",
+    "D1-CENA1": "Día 1 - Cena 1",
+    "D2-ACRED1": "Día 2 - Acreditación 1 (Mañana)",
+    "D2-ACRED2": "Día 2 - Acreditación 2 (Luego refrigerio)",
+    "D2-ACRED3": "Día 2 - Acreditación 3 (Luego almuerzo)",
+    "D2-ACRED4": "Día 2 - Acreditación 4 (Gala)",
+    "D2-REF3": "Día 2 - Refrigerio 3",
+    "D2-REF4": "Día 2 - Refrigerio 4",
+    "D2-DES1": "Día 2 - Desayuno 1",
+    "D2-ALM1": "Día 2 - Almuerzo 1",
+    "D2-CENA2": "Día 2 - Cena 2",
+    "D3-ACRED1": "Día 3 - Acreditación 1 (Mañana)",
+    "D3-ACRED2": "Día 3 - Acreditación 2 (Zorro)",
+    "D3-REF5": "Día 3 - Refrigerio 5",
+    "D3-DES2": "Día 3 - Desayuno 2",
+    "D3-ALM2": "Día 3 - Almuerzo 2"
   };
 
   function reproducirSonido(tipo) {
@@ -393,8 +460,13 @@
 
   function actualizarHoraLimiteVisual() {
     const mom = document.getElementById('filtroMomento').value;
-    const hora = horasLimites[mom] || "Sin límite";
-    document.getElementById('infoHoraLimite').innerText = `🕒 Hora límite oficial de cierre: ${hora} (Multa: $700 COP / min)`;
+    const esAcreditacion = mom.includes("ACRED");
+    if (esAcreditacion) {
+      const hora = horasLimites[mom] || "08:30";
+      document.getElementById('infoHoraLimite').innerText = `🕒 Acreditación con multa por retraso: Límite ${hora} ($700 COP/min)`;
+    } else {
+      document.getElementById('infoHoraLimite').innerText = `🍽️ Momento de Alimentación / Control de Aforo (Sin multas de tiempo)`;
+    }
   }
 
   function cargarHoraLimiteEnInput() {
@@ -501,19 +573,20 @@
       return;
     }
 
+    const esAcreditacion = momento.includes("ACRED");
     const ahoraObj = new Date();
     const horaActualMinutos = ahoraObj.getHours() * 60 + ahoraObj.getMinutes();
     
     let minutosRetraso = 0;
     let valorMulta = 0;
-    const horaLimiteStr = horasLimites[momento];
-
-    if (horaLimiteStr) {
+    
+    if (esAcreditacion) {
+      const horaLimiteStr = horasLimites[momento] || "08:30";
       const [limH, limM] = horaLimiteStr.split(':').map(Number);
       const horaLimiteMinutos = limH * 60 + limM;
       if (horaActualMinutos > horaLimiteMinutos) {
         minutosRetraso = horaActualMinutos - horaLimiteMinutos;
-        valorMulta = minutosRetraso * 700;
+        valorMulta = minutosRetraso * 700; // $700 COP por min de retraso en acreditación
       }
     }
 
@@ -545,13 +618,13 @@
       .then(() => {
         let detalleAlerta = `Momento: ${momentoNombre}`;
         if (valorMulta > 0) {
-          detalleAlerta += ` | ⚠️ CON RETRASO: ${minutosRetraso} min • MULTA: $${valorMulta.toLocaleString('es-CO')} COP`;
+          detalleAlerta += ` | ⚠️ RETRASO ACREDITACIÓN: ${minutosRetraso} min • MULTA: $${valorMulta.toLocaleString('es-CO')} COP`;
         }
         if (tieneAlertaComida) {
           detalleAlerta += ` | 🍽️ ALERTA ALIMENTARIA: ${restriccion}`;
         }
         
-        const tituloAlerta = valorMulta > 0 ? "⚠️ INGRESO CON MULTA POR RETRASO" : "✅ PUEDE PASAR";
+        const tituloAlerta = valorMulta > 0 ? "⚠️ INGRESO CON MULTA DE ACREDITACIÓN" : "✅ PUEDE PASAR";
         const claseOverlay = valorMulta > 0 ? "AMARILLO" : "VERDE";
 
         mostrarAlertaFull(claseOverlay, tituloAlerta, asistente.nombre, `Corte: ${asistente.corte}`, detalleAlerta);
@@ -638,12 +711,95 @@
             ${tieneRest ? `<div class="item-rest">🍽️ ${a.restriccion}</div>` : ''}
             <div class="tags-mov">${tagsHtml || '<span style="font-size:11px; color:#64748b;">Sin registros</span>'}</div>
           </div>
-          <div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
             <button class="btn-sm" onclick="procesarValidacion('${a.cedula}')">Validar</button>
+            <button class="btn-sm btn-yellow" onclick="abrirModalInfraccion('${a.cedula}')">⚠️ Multa</button>
           </div>
         </div>
       `;
     }).join('');
+  }
+
+  // FUNCIONES PARA EL MODAL DE INFRACCIONES / MULTAS MANUALES
+  function abrirModalInfraccion(cedula) {
+    const asistente = baseAsistentes.find(a => String(a.cedula) === String(cedula));
+    if (!asistente) return;
+    asistenteActualPendiente = asistente;
+
+    document.getElementById('modalAsistenteInfo').innerText = `${asistente.nombre} (CC: ${asistente.cedula} • ${asistente.corte})`;
+    document.getElementById('selectConceptoInfraccion').value = "KIT_EXTEMPORANEO";
+    document.getElementById('inputMinutosExtemporaneo').value = 10;
+    cambiarConceptoInfraccion();
+    document.getElementById('textObservacionInfraccion').value = "";
+    document.getElementById('modalInfraccion').style.display = 'flex';
+  }
+
+  function cerrarModalInfraccion() {
+    document.getElementById('modalInfraccion').style.display = 'none';
+    asistenteActualPendiente = null;
+  }
+
+  function cambiarConceptoInfraccion() {
+    const concepto = document.getElementById('selectConceptoInfraccion').value;
+    const divMin = document.getElementById('divMinutosRetraso');
+    const inputValor = document.getElementById('inputValorMultaManual');
+
+    if (concepto === "KIT_EXTEMPORANEO") {
+      divMin.style.display = "block";
+      calcularValorManual();
+    } else {
+      divMin.style.display = "none";
+      if (concepto === "VISITA_INDUSTRIAL") inputValor.value = 40000;
+      else if (concepto === "ESPACIO_ACTIVIDAD") inputValor.value = 55000;
+      else if (concepto === "ZONAS_ALTERNAS") inputValor.value = 165000;
+      else if (concepto === "FUERA_INSTALACIONES") inputValor.value = 175000;
+      else if (concepto === "VESTIMENTA") inputValor.value = 60000;
+      else if (concepto === "OTRA") inputValor.value = 0;
+    }
+  }
+
+  function calcularValorManual() {
+    const mins = parseInt(document.getElementById('inputMinutosExtemporaneo').value) || 0;
+    document.getElementById('inputValorMultaManual').value = mins * 1000; // $1.000 / min para kit extemporáneo
+  }
+
+  function guardarInfraccionManual() {
+    if (!asistenteActualPendiente) return;
+    const conceptoKey = document.getElementById('selectConceptoInfraccion').value;
+    const selectEl = document.getElementById('selectConceptoInfraccion');
+    const conceptoTexto = selectEl.options[selectEl.selectedIndex].text;
+    const valorMulta = parseInt(document.getElementById('inputValorMultaManual').value) || 0;
+    const observacion = document.getElementById('textObservacionInfraccion').value.trim();
+    const mins = conceptoKey === "KIT_EXTEMPORANEO" ? (parseInt(document.getElementById('inputMinutosExtemporaneo').value) || 0) : 0;
+
+    const ahoraObj = new Date();
+    const horaStr = String(ahoraObj.getHours()).padStart(2, '0') + ":" + String(ahoraObj.getMinutes()).padStart(2, '0');
+    const fechaStr = ahoraObj.toLocaleDateString('es-CO');
+
+    const nuevoReg = {
+      timestamp: Date.now(),
+      fecha: fechaStr,
+      hora: horaStr,
+      momento: "INFRACCION-EXTRA",
+      momentoNombre: `Sanción: ${conceptoTexto}`,
+      cedula: asistenteActualPendiente.cedula,
+      nombre: asistenteActualPendiente.nombre,
+      corte: asistenteActualPendiente.corte,
+      restriccion: asistenteActualPendiente.restriccion || "Sin restricciones",
+      operador: usuarioLogueado,
+      retrasoMinutos: mins,
+      multaCOP: valorMulta,
+      observacion: observacion
+    };
+
+    db.collection("registros_conal").add(nuevoReg)
+      .then(() => {
+        alert(`Sanción guardada exitosamente por $${valorMulta.toLocaleString('es-CO')} COP.`);
+        cerrarModalInfraccion();
+      })
+      .catch(error => {
+        alert("Error al guardar sanción: " + error.message);
+      });
   }
 
   function actualizarEstadisticas() {
@@ -651,6 +807,7 @@
     
     const registrosFiltrados = historialRegistros.filter(r => {
       if (diaFiltro === "TODOS") return true;
+      if (r.momento === "INFRACCION-EXTRA") return true;
       return r.momento.startsWith(diaFiltro);
     });
 
@@ -713,7 +870,7 @@
       <div class="item-asistente">
         <div class="item-info">
           <div class="item-nombre">${r.nombre} (CC: ${r.cedula})</div>
-          <div class="item-meta">📌 ${r.momentoNombre} • 🕒 ${r.fecha} ${r.hora} ${r.multaCOP > 0 ? `| ⚠️ Retraso: ${r.retrasoMinutos}m ($${r.multaCOP.toLocaleString('es-CO')})` : ''}</div>
+          <div class="item-meta">📌 ${r.momentoNombre} • 🕒 ${r.fecha} ${r.hora} ${r.multaCOP > 0 ? `| ⚠️ Valor: $${r.multaCOP.toLocaleString('es-CO')}` : ''} ${r.observacion ? `| Nota: ${r.observacion}` : ''}</div>
         </div>
         <div>
           <button class="btn-sm btn-red" onclick="eliminarRegistroNube('${r.firestoreId}')">Borrar</button>
@@ -730,43 +887,38 @@
     }
   }
 
-  // FUNCIÓN DE DESCARGA A LA CARTA
+  // DESCARGAS EN EXCEL (CSV)
   function descargarReporteSeleccionado() {
     const tipo = document.getElementById('selectorTipoDescarga').value;
     let csv = "";
     let nombreArchivo = `Reporte_CONAL2026_${tipo}_${new Date().toISOString().slice(0,10)}.csv`;
 
-    // Caso especial: Inasistentes / Faltantes
     if (tipo.startsWith("INASISTENTES_")) {
       const dia = tipo.split("_")[1]; // D1, D2 o D3
-      const momentoIngreso = `${dia}-INGRESO`;
+      const momentoIngreso = `${dia}-ACRED1`;
       const cedulasPresentes = new Set(historialRegistros.filter(r => r.momento === momentoIngreso).map(r => String(r.cedula).trim()));
       const faltantes = baseAsistentes.filter(a => !cedulasPresentes.has(String(a.cedula).trim()));
 
-      if (faltantes.length === 0) return alert("¡Excelente! No hay faltantes para ese ingreso.");
+      if (faltantes.length === 0) return alert("¡Excelente! No hay faltantes para esa acreditación.");
 
       csv = "\uFEFFESTADO;CEDULA;NOMBRE;CORTE;RESTRICCION_ALIMENTARIA\n";
       faltantes.forEach(a => {
         csv += `PENDIENTE / NO ASISTIO;${a.cedula};"${a.nombre}";"${a.corte}";"${a.restriccion || 'Sin restricciones'}"\n`;
       });
     } else {
-      // Registros filtrados
       let datos = historialRegistros;
 
       if (tipo === "MULTAS") {
         datos = historialRegistros.filter(r => (r.multaCOP || 0) > 0);
       } else if (tipo === "D1" || tipo === "D2" || tipo === "D3") {
-        datos = historialRegistros.filter(r => r.momento.startsWith(tipo));
-      } else if (tipo !== "TODOS") {
-        // Es un momento específico (ej. D1-REF1)
-        datos = historialRegistros.filter(r => r.momento === tipo);
+        datos = historialRegistros.filter(r => r.momento.startsWith(tipo) || (r.momento === "INFRACCION-EXTRA" && tipo === "D1"));
       }
 
       if (datos.length === 0) return alert("No hay registros guardados bajo el filtro seleccionado.");
 
-      csv = "\uFEFFFECHA;HORA;MOMENTO;CEDULA;NOMBRE;CORTE;RESTRICCION;OPERADOR;MINUTOS_RETRASO;VALOR_MULTA_COP\n";
+      csv = "\uFEFFFECHA;HORA;MOMENTO;CEDULA;NOMBRE;CORTE;RESTRICCION;OPERADOR;MINUTOS_RETRASO;VALOR_MULTA_COP;OBSERVACION\n";
       datos.forEach(r => {
-        csv += `${r.fecha};${r.hora};"${r.momentoNombre}";${r.cedula};"${r.nombre}";"${r.corte}";"${r.restriccion}";"${r.operador || 'admin'}";${r.retrasoMinutos || 0};${r.multaCOP || 0}\n`;
+        csv += `${r.fecha};${r.hora};"${r.momentoNombre}";${r.cedula};"${r.nombre}";"${r.corte}";"${r.restriccion}";"${r.operador || 'admin'}";${r.retrasoMinutos || 0};${r.multaCOP || 0};"${r.observacion || ''}"\n`;
       });
     }
 
