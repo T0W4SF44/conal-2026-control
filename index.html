@@ -30,7 +30,7 @@
 
     /* HEADER & LOGO INSTITUCIONAL - TAMAÑO GIGANTE */
     .brand-header { background: var(--card); padding: 24px 16px; border-radius: 14px; text-align: center; margin-bottom: 14px; border: 1px solid #334155; }
-    .logo-img { max-height: 350px; width: 100%; max-width: 650px; margin-bottom: 10px; object-fit: contain; display: inline-block; }
+    .logo-img { max-height: 220px; width: 100%; max-width: 500px; margin-bottom: 10px; object-fit: contain; display: inline-block; }
     .brand-fallback { font-size: 32px; font-weight: 900; background: linear-gradient(45deg, #3b82f6, #10b981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     .topbar { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-size: 13px; color: var(--muted); border-top: 1px solid #334155; padding-top: 12px; }
     .badge-rol { background: var(--primary); color: white; padding: 2px 8px; border-radius: 12px; font-weight: bold; }
@@ -133,14 +133,14 @@
   </div>
 </div>
 
-<!-- MODAL S.O.S. / EMERGENCIA -->
+<!-- MODAL S.O.S. / EMERGENCIA (Con el número individual de la base de datos) -->
 <div id="modalSos" class="modal-overlay">
   <div class="card" style="width: 100%; max-width: 480px; text-align: center; border: 2px solid var(--red);">
     <h3 style="color: var(--red);">🚨 ATENCIÓN: EMERGENCIA S.O.S.</h3>
     <p id="sosAsistenteInfo" style="font-size: 16px; font-weight: bold; margin: 12px 0;"></p>
     <div id="sosDetallesMedico" style="background: #0f172a; padding: 12px; border-radius: 8px; font-size: 14px; color: #fcd34d; margin-bottom: 16px; text-align: left;"></div>
     
-    <a id="btnLlamarEmergencia" href="tel:3100000000" style="display: block; background: var(--red); color: white; padding: 14px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-bottom: 10px;">📞 LLAMAR A SEGURIDAD / MÉDICO</a>
+    <a id="btnLlamarEmergencia" href="#" style="display: block; background: var(--red); color: white; padding: 14px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-bottom: 10px;">📞 LLAMAR AL ASISTENTE / CONTACTO</a>
     <button onclick="registrarIncidenteSos()" class="btn-yellow" style="margin-top: 0;">📝 Registrar Incidencia en Bitácora</button>
     <button onclick="cerrarModal('modalSos')" class="btn-sec" style="margin-top: 10px;">Cerrar</button>
   </div>
@@ -288,7 +288,7 @@
       </div>
     </div>
 
-    <!-- PESTAÑA 4: ADMIN (HORAS LÍMITE, DESCARGAS Y MÓVIL PWA) -->
+    <!-- PESTAÑA 4: ADMIN -->
     <div id="tabAdmin" class="tab-content hidden">
       <div class="card">
         <h3>Panel de Administración y Control</h3>
@@ -819,8 +819,21 @@
     if (!asistente) return;
     asistenteActualPendiente = asistente;
 
+    const telefonoAsistente = asistente.telefono || asistente.celular || asistente.tel || "";
+
     document.getElementById('sosAsistenteInfo').innerText = `${asistente.nombre} (CC: ${asistente.cedula})`;
-    document.getElementById('sosDetallesMedico').innerHTML = `<strong>🍽️ Restricción / Condición:</strong> ${asistente.restriccion || 'Ninguna'}<br><strong>📌 Corte:</strong> ${asistente.corte}`;
+    document.getElementById('sosDetallesMedico').innerHTML = `<strong>📞 Teléfono:</strong> ${telefonoAsistente || 'No registrado'}<br><strong>🍽️ Restricción / Condición:</strong> ${asistente.restriccion || 'Ninguna'}<br><strong>📌 Corte:</strong> ${asistente.corte}`;
+    
+    const btnLlamar = document.getElementById('btnLlamarEmergencia');
+    if (telefonoAsistente) {
+      btnLlamar.href = `tel:${telefonoAsistente}`;
+      btnLlamar.style.display = "block";
+      btnLlamar.innerText = `📞 LLAMAR AL ASISTENTE (${telefonoAsistente})`;
+    } else {
+      btnLlamar.href = "#";
+      btnLlamar.style.display = "none";
+    }
+
     document.getElementById('modalSos').style.display = 'flex';
   }
 
