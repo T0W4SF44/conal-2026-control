@@ -1,1001 +1,1220 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CONAL 2026 - Centro de Mando Maestro</title>
-  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-  <!-- Importar Firebase SDK (Compat) -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-  <style>
-    :root {
-      --bg: #0f172a; --card: #1e293b; --input: #334155; --primary: #3b82f6;
-      --green: #10b981; --yellow: #f59e0b; --red: #ef4444; --text: #f8fafc; --muted: #94a3b8;
-    }
-    * { box-sizing: border-box; }
-    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 12px; }
-    .container { max-width: 650px; margin: 0 auto; padding-bottom: 40px; }
-    .card { background: var(--card); padding: 18px; border-radius: 14px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); margin-bottom: 16px; }
-    h2, h3, h4 { margin: 0 0 10px 0; }
-    input, select, textarea { width: 100%; padding: 12px; margin: 6px 0; border-radius: 8px; border: 1px solid #475569; font-size: 15px; background: var(--input); color: white; }
-    button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 8px; }
-    button:active { opacity: 0.9; }
-    .btn-sec { background: #475569; }
-    .btn-green { background: #059669; }
-    .btn-yellow { background: #d97706; }
-    .btn-red { background: #dc2626; }
-    .btn-sm { padding: 6px 10px; font-size: 12px; width: auto; margin-top: 0; }
-    .hidden { display: none !important; }
-
-    /* HEADER & LOGO INSTITUCIONAL - TAMAÑO GIGANTE */
-    .brand-header { background: var(--card); padding: 24px 16px; border-radius: 14px; text-align: center; margin-bottom: 14px; border: 1px solid #334155; }
-    .logo-img { max-height: 220px; width: 100%; max-width: 500px; margin-bottom: 10px; object-fit: contain; display: inline-block; }
-    .brand-fallback { font-size: 32px; font-weight: 900; background: linear-gradient(45deg, #3b82f6, #10b981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .topbar { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-size: 13px; color: var(--muted); border-top: 1px solid #334155; padding-top: 12px; }
-    .badge-rol { background: var(--primary); color: white; padding: 2px 8px; border-radius: 12px; font-weight: bold; }
-
-    /* Navegación */
-    .nav-tabs { display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto; }
-    .tab-btn { flex: 1; background: var(--card); color: var(--muted); border: 1px solid #334155; padding: 10px 6px; font-size: 13px; margin-top: 0; white-space: nowrap; }
-    .tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
-
-    /* Pantalla de Alerta Full Screen (8 Segundos con Audio) */
-    #fullAlertOverlay {
-      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999;
-      display: none; flex-direction: column; justify-content: center; align-items: center;
-      padding: 24px; text-align: center; transition: background 0.3s ease;
-    }
-    #fullAlertOverlay.VERDE { background: #065f46; color: #ecfdf5; border: 8px solid #10b981; }
-    #fullAlertOverlay.AMARILLO { background: #78350f; color: #fffbeb; border: 8px solid #f59e0b; }
-    #fullAlertOverlay.ROJO { background: #991b1b; color: #fef2f2; border: 8px solid #ef4444; }
-    .alert-title { font-size: 28px; font-weight: 900; margin-bottom: 12px; }
-    .alert-body { font-size: 20px; margin: 8px 0; }
-    .alert-sub { font-size: 15px; opacity: 0.95; margin-top: 10px; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px; }
-
-    /* Escáner */
-    #reader { width: 100%; border-radius: 12px; overflow: hidden; margin-top: 10px; background: #000; }
-    .manual-box { display: flex; gap: 8px; margin-top: 10px; }
-    .manual-box input { margin: 0; flex: 1; }
-    .manual-box button { margin: 0; width: auto; padding: 0 18px; }
-
-    /* Estadísticas y Listas */
-    .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
-    .kpi-card { background: #0f172a; padding: 14px; border-radius: 10px; border: 1px solid #334155; text-align: center; }
-    .kpi-val { font-size: 24px; font-weight: 800; color: var(--primary); }
-    .kpi-lbl { font-size: 12px; color: var(--muted); margin-top: 4px; }
-    .stat-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #334155; font-size: 14px; }
-    .item-asistente { background: #0f172a; padding: 12px; border-radius: 10px; margin-bottom: 8px; border-left: 4px solid var(--primary); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-    .item-asistente.alerta { border-left-color: var(--yellow); }
-    .item-info { text-align: left; flex: 1; }
-    .item-nombre { font-weight: bold; font-size: 15px; }
-    .item-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
-    .item-rest { font-size: 12px; color: #fcd34d; margin-top: 4px; }
-    .tags-mov { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-    .tag { font-size: 10px; background: #065f46; color: #a7f3d0; padding: 2px 6px; border-radius: 4px; }
-    .tag-multa { background: #78350f; color: #fef3c7; }
-    .box-panel { margin-top: 14px; background: #0f172a; padding: 14px; border-radius: 10px; border: 1px solid #334155; }
-    
-    /* Modales */
-    .modal-overlay {
-      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8);
-      z-index: 9998; display: none; justify-content: center; align-items: center; padding: 16px;
-    }
-  </style>
-</head>
-<body>
-
-<!-- PANTALLA GIGANTE DE ALERTA (8 SEGUNDOS) -->
-<div id="fullAlertOverlay" onclick="cerrarAlertaFull()">
-  <div id="alertTitle" class="alert-title"></div>
-  <div id="alertName" class="alert-body" style="font-weight: bold; font-size: 24px;"></div>
-  <div id="alertCorte" class="alert-body"></div>
-  <div id="alertDetails" class="alert-sub"></div>
-  <div style="margin-top: 20px; font-size: 13px; opacity: 0.8;">(Toca en cualquier parte para continuar)</div>
-</div>
-
-<!-- MODAL DE INFRACCIONES / MULTAS MANUALES -->
-<div id="modalInfraccion" class="modal-overlay">
-  <div class="card" style="width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto;">
-    <h3>⚠️ Registrar Infracción / Sanción</h3>
-    <p id="modalAsistenteInfo" style="font-size: 13px; color: var(--muted); margin-bottom: 10px;"></p>
-    
-    <label style="font-size: 12px;">Selecciona el Concepto:</label>
-    <select id="selectConceptoInfraccion" onchange="cambiarConceptoInfraccion()">
-      <option value="KIT_EXTEMPORANEO">No acreditación y reclamación extemporánea kit ($1.000/min)</option>
-      <option value="VISITA_INDUSTRIAL">Inasistencia injustificada a visita industrial ($40.000)</option>
-      <option value="ESPACIO_ACTIVIDAD">Inasistencia injustificada a espacio/actividad ($55.000)</option>
-      <option value="ZONAS_ALTERNAS">Uso de zonas alternas fuera de horario ($165.000)</option>
-      <option value="FUERA_INSTALACIONES">Fuera de instalaciones en horario no permitido ($175.000)</option>
-      <option value="VESTIMENTA">Incumplir el código de vestimenta ($60.000)</option>
-      <option value="OTRA">Otra observación o multa personalizada</option>
-    </select>
-
-    <div id="divMinutosRetraso" style="margin-top: 8px;">
-      <label style="font-size: 12px;">Minutos de retraso (Calcula $1.000/min):</label>
-      <input type="number" id="inputMinutosExtemporaneo" value="0" min="0" oninput="calcularValorManual()">
-    </div>
-
-    <div style="margin-top: 8px;">
-      <label style="font-size: 12px;">Valor Total (COP):</label>
-      <input type="number" id="inputValorMultaManual" value="0">
-    </div>
-
-    <div style="margin-top: 8px;">
-      <label style="font-size: 12px;">Observación detallada:</label>
-      <textarea id="textObservacionInfraccion" rows="2" placeholder="Detalles del incidente..."></textarea>
-    </div>
-
-    <div style="display: flex; gap: 8px; margin-top: 14px;">
-      <button onclick="guardarInfraccionManual()" class="btn-green" style="margin:0;">Guardar Sanción</button>
-      <button onclick="cerrarModal('modalInfraccion')" class="btn-sec" style="margin:0;">Cancelar</button>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL S.O.S. / EMERGENCIA -->
-<div id="modalSos" class="modal-overlay">
-  <div class="card" style="width: 100%; max-width: 480px; text-align: center; border: 2px solid var(--red);">
-    <h3 style="color: var(--red);">🚨 ATENCIÓN: EMERGENCIA S.O.S.</h3>
-    <p id="sosAsistenteInfo" style="font-size: 16px; font-weight: bold; margin: 12px 0;"></p>
-    <div id="sosDetallesMedico" style="background: #0f172a; padding: 12px; border-radius: 8px; font-size: 14px; color: #fcd34d; margin-bottom: 16px; text-align: left;"></div>
-    
-    <a id="btnLlamarEmergencia" href="tel:3100000000" style="display: block; background: var(--red); color: white; padding: 14px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-bottom: 10px;">📞 LLAMAR A SEGURIDAD / MÉDICO</a>
-    <button onclick="registrarIncidenteSos()" class="btn-yellow" style="margin-top: 0;">📝 Registrar Incidencia en Bitácora</button>
-    <button onclick="cerrarModal('modalSos')" class="btn-sec" style="margin-top: 10px;">Cerrar</button>
-  </div>
-</div>
-
-<div class="container">
-  <!-- PANTALLA DE LOGIN -->
-  <div id="loginScreen" class="card" style="max-width: 400px; margin-top: 40px; text-align: center;">
-    <div class="brand-fallback" style="font-size: 28px; margin-bottom: 10px;">CONAL 2026</div>
-    <p style="font-size: 14px; color: var(--muted); margin-bottom: 16px;">Plataforma Oficial de Control y Logística</p>
-    <input type="text" id="usuario" placeholder="Usuario (ej. admin o logistica1)">
-    <input type="password" id="password" placeholder="Contraseña">
-    <button onclick="realizarLogin()">Ingresar al Sistema</button>
-  </div>
-
-  <!-- APLICACIÓN PRINCIPAL -->
-  <div id="appScreen" class="hidden">
-    <div class="brand-header">
-      <img id="logoConalImg" src="logo-conal.png" alt="Logo CONAL 2026" class="logo-img" onerror="this.onerror=null; this.src='CONAL%202026.png';">
-      <div id="fallbackLogo" class="brand-fallback" style="display:none;">🌿 CONAL MEDELLÍN 2026</div>
-      
-      <div class="topbar">
-        <span>Usuario: <strong id="userLogLabel"></strong> <span id="badgeRol" class="badge-rol"></span></span>
-        <button onclick="cerrarSesion()" class="btn-sec btn-sm">Salir</button>
-      </div>
-    </div>
-
-    <!-- NAVEGACIÓN -->
-    <div class="nav-tabs">
-      <button class="tab-btn active" onclick="cambiarTab('tabEscaner', this)">📷 Escáner</button>
-      <button class="tab-btn" onclick="cambiarTab('tabLista', this)">👥 Asistentes</button>
-      <button class="tab-btn" onclick="cambiarTab('tabStats', this)">📊 Aforo y Stats</button>
-      <button id="btnTabAdmin" class="tab-btn hidden" onclick="cambiarTab('tabAdmin', this)">⚙️ Admin & Reportes</button>
-    </div>
-
-    <!-- PESTAÑA 1: ESCÁNER -->
-    <div id="tabEscaner" class="tab-content">
-      <div class="card">
-        <label style="font-size: 13px; color: var(--muted);">Momento activo de control (21, 22 y 23 de Noviembre):</label>
-        <select id="filtroMomento" onchange="actualizarHoraLimiteVisual()">
-          <optgroup label="Día 1 (21 de Noviembre)">
-            <option value="D1-ACRED1">Día 1 - Acreditación 1 (Mañana)</option>
-            <option value="D1-ACRED2">Día 1 - Acreditación 2 (Luego refrigerio)</option>
-            <option value="D1-ACRED3">Día 1 - Acreditación 3 (Luego almuerzo)</option>
-            <option value="D1-REF1">Día 1 - Refrigerio 1</option>
-            <option value="D1-REF2">Día 1 - Refrigerio 2</option>
-            <option value="D1-CENA1">Día 1 - Cena 1</option>
-          </optgroup>
-          <optgroup label="Día 2 (22 de Noviembre)">
-            <option value="D2-ACRED1">Día 2 - Acreditación 1 (Mañana)</option>
-            <option value="D2-ACRED2">Día 2 - Acreditación 2 (Luego refrigerio)</option>
-            <option value="D2-ACRED3">Día 2 - Acreditación 3 (Luego almuerzo)</option>
-            <option value="D2-ACRED4">Día 2 - Acreditación 4 (Gala)</option>
-            <option value="D2-REF3">Día 2 - Refrigerio 3</option>
-            <option value="D2-REF4">Día 2 - Refrigerio 4</option>
-            <option value="D2-DES1">Día 2 - Desayuno 1</option>
-            <option value="D2-ALM1">Día 2 - Almuerzo 1</option>
-            <option value="D2-CENA2">Día 2 - Cena 2</option>
-          </optgroup>
-          <optgroup label="Día 3 (23 de Noviembre)">
-            <option value="D3-ACRED1">Día 3 - Acreditación 1 (Mañana)</option>
-            <option value="D3-ACRED2">Día 3 - Acreditación 2 (Zorro)</option>
-            <option value="D3-REF5">Día 3 - Refrigerio 5</option>
-            <option value="D3-DES2">Día 3 - Desayuno 2</option>
-            <option value="D3-ALM2">Día 3 - Almuerzo 2</option>
-          </optgroup>
-        </select>
-        <div id="infoHoraLimite" style="font-size: 12px; color: var(--yellow); margin-top: 4px;"></div>
-
-        <div id="reader"></div>
-
-        <div style="margin-top: 16px; border-top: 1px solid #334155; padding-top: 12px;">
-          <label style="font-size: 13px; color: var(--muted);">¿QR ilegible? Consulta manual por cédula:</label>
-          <div class="manual-box">
-            <input type="number" id="inputManualCedula" placeholder="Digita la cédula...">
-            <button onclick="procesarManual()">Validar</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- PESTAÑA 2: LISTA DE ASISTENTES -->
-    <div id="tabLista" class="tab-content hidden">
-      <div class="card">
-        <h3>Directorio de Asistentes (<span id="contadorFiltrados">0</span>)</h3>
-        <input type="text" id="buscadorTexto" placeholder="🔍 Buscar por nombre o cédula..." oninput="renderizarLista()">
-        
-        <div style="display: flex; gap: 8px;">
-          <select id="filtroCorte" onchange="renderizarLista()">
-            <option value="TODOS">Todos los Cortes</option>
-          </select>
-          <select id="filtroEstado" onchange="renderizarLista()">
-            <option value="TODOS">Todos los Estados</option>
-            <option value="CON_INGRESO">✅ Registrados</option>
-            <option value="SIN_INGRESO">⏳ Pendientes</option>
-            <option value="RESTRICCION">⚠️ Con Alerta Alimentos</option>
-          </select>
-        </div>
-
-        <div id="contenedorLista" style="margin-top: 12px; max-height: 60vh; overflow-y: auto;"></div>
-      </div>
-    </div>
-
-    <!-- PESTAÑA 3: AFORO Y ESTADÍSTICAS -->
-    <div id="tabStats" class="tab-content hidden">
-      <div class="card">
-        <h3>Aforo y Estadísticas en Tiempo Real</h3>
-        <div style="margin-bottom: 12px;">
-          <label style="font-size: 12px; color: var(--muted);">Filtrar estadísticas por Día / Jornada:</label>
-          <select id="selectorDiaStats" onchange="actualizarEstadisticas()">
-            <option value="TODOS">🌐 Todos los Días (General)</option>
-            <option value="D1">Día 1 (21 Noviembre)</option>
-            <option value="D2">Día 2 (22 Noviembre)</option>
-            <option value="D3">Día 3 (23 Noviembre)</option>
-          </select>
-        </div>
-
-        <div class="kpi-grid">
-          <div class="kpi-card">
-            <div class="kpi-val" id="kpiTotalBase">0</div>
-            <div class="kpi-lbl">Total Inscritos Base</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-val" id="kpiAsistentesUnicos" style="color: var(--green);">0</div>
-            <div class="kpi-lbl">Asistentes Activos</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-val" id="kpiTotalMovs" style="color: var(--yellow);">0</div>
-            <div class="kpi-lbl">Escaneos Totales</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-val" id="kpiTotalMultas" style="color: var(--red);">$0</div>
-            <div class="kpi-lbl">Recaudo por Multas</div>
-          </div>
-        </div>
-
-        <h4>Progreso por Momento</h4>
-        <div id="statsPorMomento" style="margin-bottom: 16px;"></div>
-
-        <h4>Aforo por Corte</h4>
-        <div id="statsPorCorte" style="margin-bottom: 16px;"></div>
-
-        <h4>Últimos Ingresos Registrados</h4>
-        <div id="historialReciente" style="font-size: 13px;"></div>
-      </div>
-    </div>
-
-    <!-- PESTAÑA 4: ADMIN (HORAS LÍMITE, DESCARGAS Y MÓVIL PWA) -->
-    <div id="tabAdmin" class="tab-content hidden">
-      <div class="card">
-        <h3>Panel de Administración y Control</h3>
-        <p style="font-size: 13px; color: var(--muted);">Configura las horas de cierre de las <strong>Acreditaciones</strong> ($700 COP/min de retraso). Las comidas y refrigerios son solo control de aforo.</p>
-        
-        <!-- BLOQUE 1: HORAS LÍMITE -->
-        <div class="box-panel">
-          <h4 style="font-size: 14px; margin-bottom: 8px;">🕒 1. Definir Hora Límite de Acreditaciones</h4>
-          <select id="adminMomentoSelect" onchange="cargarHoraLimiteEnInput()">
-            <option value="D1-ACRED1">Día 1 - Acreditación 1</option>
-            <option value="D1-ACRED2">Día 1 - Acreditación 2</option>
-            <option value="D1-ACRED3">Día 1 - Acreditación 3</option>
-            <option value="D2-ACRED1">Día 2 - Acreditación 1</option>
-            <option value="D2-ACRED2">Día 2 - Acreditación 2</option>
-            <option value="D2-ACRED3">Día 2 - Acreditación 3</option>
-            <option value="D2-ACRED4">Día 2 - Acreditación 4 (Gala)</option>
-            <option value="D3-ACRED1">Día 3 - Acreditación 1</option>
-            <option value="D3-ACRED2">Día 3 - Acreditación 2 (Zorro)</option>
-          </select>
-          <div style="display: flex; gap: 8px; margin-top: 6px;">
-            <input type="time" id="inputHoraLimiteConfig" style="margin:0;">
-            <button onclick="guardarHoraLimite()" class="btn-sm btn-green" style="margin-top:0;">Guardar Hora</button>
-          </div>
-        </div>
-
-        <!-- BLOQUE 2: DESCARGAS A LA CARTA -->
-        <div class="box-panel">
-          <h4 style="font-size: 14px; margin-bottom: 6px;">📥 2. Centro de Descargas en Excel (CSV)</h4>
-          <select id="selectorTipoDescarga">
-            <option value="TODOS">📄 Todo el Historial Consolidado General</option>
-            <option value="MULTAS">⚠️ Solo Reporte Financiero de Multas e Infracciones</option>
-            <option value="D1">📅 Solo Día 1 Completo (21 Noviembre)</option>
-            <option value="D2">📅 Solo Día 2 Completo (22 Noviembre)</option>
-            <option value="D3">📅 Solo Día 3 Completo (23 Noviembre)</option>
-            <option value="INASISTENTES_D1">🚫 Faltantes al Ingreso Día 1</option>
-            <option value="INASISTENTES_D2">🚫 Faltantes al Ingreso Día 2</option>
-            <option value="INASISTENTES_D3">🚫 Faltantes al Ingreso Día 3</option>
-          </select>
-          <button onclick="descargarReporteSeleccionado()" class="btn-green">⬇️ Descargar Archivo Excel Seleccionado</button>
-        </div>
-
-        <!-- BLOQUE 3: GUÍA PWA -->
-        <div class="box-panel" style="border-color: #3b82f6;">
-          <h4 style="font-size: 14px; margin-bottom: 6px; color: #60a5fa;">📱 Cómo instalar esta web como App Móvil</h4>
-          <p style="font-size: 12px; color: var(--muted); margin: 0 0 6px 0;"><strong>En Android (Chrome):</strong> Toca los 3 puntos arriba a la derecha y selecciona "Instalar aplicación" o "Agregar a pantalla principal".</p>
-          <p style="font-size: 12px; color: var(--muted); margin: 0;"><strong>En iPhone (Safari):</strong> Toca el botón Compartir y selecciona "Agregar a inicio".</p>
-        </div>
-
-        <!-- BLOQUE 4: HISTORIAL EN VIVO -->
-        <div style="margin-top: 18px;">
-          <h4>Historial Completo en Tiempo Real (<span id="totalRegistrosAdmin">0</span>)</h4>
-          <div id="listaAdminRegistros" style="max-height: 30vh; overflow-y: auto; margin-top: 8px;"></div>
-        </div>
-
-        <div style="margin-top: 20px; border-top: 1px solid #334155; padding-top: 14px;">
-          <button onclick="limpiarTodoHistorial()" class="btn-red">⚠️ Borrar Todo el Historial en la Nube</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-  // ================= CONFIGURACIÓN REAL DE FIREBASE =================
-  const firebaseConfig = {
-    apiKey: "AIzaSyDMKyx5pFh6XFsCJccJHlqJixeYUyI5KCA",
-    authDomain: "conal-2026-control.firebaseapp.com",
-    projectId: "conal-2026-control",
-    storageBucket: "conal-2026-control.firebasestorage.app",
-    messagingSenderId: "1069062725584",
-    appId: "1:1069062725584:web:e4663b10411ef23e72e3d5",
-    measurementId: "G-YR9EQRC60D"
-  };
-  // ==================================================================
-
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
-
-  let baseAsistentes = [];
-  let historialRegistros = [];
-  let horasLimites = JSON.parse(localStorage.getItem('conal2026_horas_limites')) || {
-    "D1-ACRED1": "08:30", "D2-ACRED1": "08:30", "D3-ACRED1": "09:00"
-  };
-
-  let usuarioLogueado = "";
-  let rolActual = "";
-  let html5QrCode = null;
-  let escaneandoActivo = false;
-  let bloqueado = false;
-  let timerAlertaFull = null;
-  let ultimoEscaneoCedula = "";
-  let ultimoEscaneoTiempo = 0;
-  let asistenteActualPendiente = null;
-
-  const USUARIOS_VALIDOS = {
-    "admin": { pass: "conal2026admin", rol: "ADMIN" },
-    "logistica1": { pass: "log123", rol: "OPERADOR" },
-    "logistica2": { pass: "log123", rol: "OPERADOR" },
-    "logistica3": { pass: "log123", rol: "OPERADOR" },
-    "logistica4": { pass: "log123", rol: "OPERADOR" }
-  };
-
-  const NOMBRES_MOMENTOS = {
-    "D1-ACRED1": "Día 1 - Acreditación 1 (Mañana)",
-    "D1-ACRED2": "Día 1 - Acreditación 2 (Luego refrigerio)",
-    "D1-ACRED3": "Día 1 - Acreditación 3 (Luego almuerzo)",
-    "D1-REF1": "Día 1 - Refrigerio 1",
-    "D1-REF2": "Día 1 - Refrigerio 2",
-    "D1-CENA1": "Día 1 - Cena 1",
-    "D2-ACRED1": "Día 2 - Acreditación 1 (Mañana)",
-    "D2-ACRED2": "Día 2 - Acreditación 2 (Luego refrigerio)",
-    "D2-ACRED3": "Día 2 - Acreditación 3 (Luego almuerzo)",
-    "D2-ACRED4": "Día 2 - Acreditación 4 (Gala)",
-    "D2-REF3": "Día 2 - Refrigerio 3",
-    "D2-REF4": "Día 2 - Refrigerio 4",
-    "D2-DES1": "Día 2 - Desayuno 1",
-    "D2-ALM1": "Día 2 - Almuerzo 1",
-    "D2-CENA2": "Día 2 - Cena 2",
-    "D3-ACRED1": "Día 3 - Acreditación 1 (Mañana)",
-    "D3-ACRED2": "Día 3 - Acreditación 2 (Zorro)",
-    "D3-REF5": "Día 3 - Refrigerio 5",
-    "D3-DES2": "Día 3 - Desayuno 2",
-    "D3-ALM2": "Día 3 - Almuerzo 2"
-  };
-
-  function reproducirSonido(tipo) {
-    try {
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-
-      if (tipo === "VERDE") {
-        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
-        osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.1);
-        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.25);
-      } else if (tipo === "AMARILLO" || tipo === "MULTA") {
-        osc.frequency.setValueAtTime(440, audioCtx.currentTime);
-        osc.frequency.setValueAtTime(330, audioCtx.currentTime + 0.15);
-        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.35);
-      } else {
-        osc.type = "sawtooth";
-        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.4);
-      }
-    } catch (e) {
-      console.log("Audio no soportado", e);
-    }
+[
+  {
+    "cedula": "1066177889",
+    "nombre": "Camilo Andrés Avilez Betin",
+    "corte": "Buganvilla (Comité)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1036251168",
+    "nombre": "Ana Isabel Angarita Escobar",
+    "corte": "Buganvilla (Comité)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1014863888",
+    "nombre": "Marian Daniela Zafra Morales",
+    "corte": "Buganvilla (Comité)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1022142838",
+    "nombre": "María Isabel Cañas Duque",
+    "corte": "Buganvilla (Comité)",
+    "restriccion": "Alergia: a nada"
+  },
+  {
+    "cedula": "1053786098",
+    "nombre": "Sofia Vallejo Martinez",
+    "corte": "Buganvilla (Comité)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1025888623",
+    "nombre": "Maria José Molina López",
+    "corte": "Buganvilla (Comité)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1037120253",
+    "nombre": "Sharon Dailly Parra López",
+    "corte": "Buganvilla (Comité)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1038867418",
+    "nombre": "Susana Aguirre Franco",
+    "corte": "Buganvilla (Comité)",
+    "restriccion": "Alergia: AINES"
+  },
+  {
+    "cedula": "1142714330",
+    "nombre": "Laura Sofía Jaimes Hernández",
+    "corte": "Buganvilla (Comité)",
+    "restriccion": "Alergia: A las abejas y soy Rinitica"
+  },
+  {
+    "cedula": "1002999677",
+    "nombre": "Paola Andrea Cañizares Garcés",
+    "corte": "Buganvilla (Comité)",
+    "restriccion": "Alergia: Lactosa y cerdo | Dieta: No como cerdo me hace daño"
+  },
+  {
+    "cedula": "1011511786",
+    "nombre": "María Clara Uribe Restrepo",
+    "corte": "Buganvilla (Comité)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1116239270",
+    "nombre": "Juliana Agudelo Cuervo",
+    "corte": "Buganvilla (Comité)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1005754402",
+    "nombre": "Valentina Troncoso Santamaría",
+    "corte": "Buganvilla (Comité)",
+    "restriccion": "Alergia: Café | Dieta: No como cerdo"
+  },
+  {
+    "cedula": "1090531096",
+    "nombre": "Daniel Alessandro Salinas Landinez",
+    "corte": "Buganvilla (Comité)",
+    "restriccion": "Alergia: Urticaria al frío"
+  },
+  {
+    "cedula": "1042151077",
+    "nombre": "Marlon Atehortua Suaza",
+    "corte": "Buganvilla (Comité)",
+    "restriccion": "Alergia: No"
+  },
+  {
+    "cedula": "1126844215",
+    "nombre": "Nicolás Antonio Sassu Tarón",
+    "corte": "Buganvilla (Comité)",
+    "restriccion": "Alergia: Paola"
+  },
+  {
+    "cedula": "1000410534",
+    "nombre": "Susana Roldán Restrepo",
+    "corte": "Buganvilla (Comité)",
+    "restriccion": "Alergia: no"
+  },
+  {
+    "cedula": "1234567891",
+    "nombre": "Maria Antonia Bolívar Sierra",
+    "corte": "Buganvilla (Comité)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "9876543211",
+    "nombre": "Santiago Gómez Berrío",
+    "corte": "Buganvilla (Comité)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1006959934",
+    "nombre": "Andrés García Arboleda",
+    "corte": "Buganvilla (Comité)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1044217629",
+    "nombre": "Miguel Ángel Zapata Gómez",
+    "corte": "Heliconia (Preventa)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1193095971",
+    "nombre": "Juan Esteban Londoño Bejarano",
+    "corte": "Heliconia (Preventa)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1041693223",
+    "nombre": "Karime Alejandra Rangel Infante",
+    "corte": "Heliconia (Preventa)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1089100035",
+    "nombre": "Helen Daniela Castaño Sánchez",
+    "corte": "Heliconia (Preventa)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1044331096",
+    "nombre": "Gilberto José Brochero De León",
+    "corte": "Heliconia (Preventa)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1109186948",
+    "nombre": "Samuel Bernal Aguirre",
+    "corte": "Heliconia (Preventa)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1048073099",
+    "nombre": "Valery Sofía Linares Royet",
+    "corte": "Heliconia (Preventa)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1042254342",
+    "nombre": "Mariana Lafont Mercado",
+    "corte": "Heliconia (Preventa)",
+    "restriccion": "Alergia: Al polvo y los cambios bruscos de temperatura."
+  },
+  {
+    "cedula": "1089602453",
+    "nombre": "Joseph Mosquera Castro",
+    "corte": "Heliconia (Preventa)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1141114968",
+    "nombre": "Laura Camila Rojas Niño",
+    "corte": "Heliconia (Preventa)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1193211808",
+    "nombre": "Sergio Zapata Riobo",
+    "corte": "Heliconia (Preventa)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1025321177",
+    "nombre": "Mateo Elías Maximus Acuña Ramírez",
+    "corte": "Heliconia (Preventa)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1105369769",
+    "nombre": "Wanda Isabella Cuello Barahona",
+    "corte": "Heliconia (Preventa)",
+    "restriccion": "Alergia: No"
+  },
+  {
+    "cedula": "1063147355",
+    "nombre": "Ana Karina Cortés Romero",
+    "corte": "Heliconia (Preventa)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1002566151",
+    "nombre": "Sebastián González Quintero",
+    "corte": "Heliconia (Preventa)",
+    "restriccion": "Alergia: Al churro"
+  },
+  {
+    "cedula": "1092852064",
+    "nombre": "Pablo Alejandro Torres Ocampo",
+    "corte": "Heliconia (Preventa)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1088826071",
+    "nombre": "Nicole Rodas Pachón",
+    "corte": "Heliconia (Preventa)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1142915385",
+    "nombre": "Javier Martínez Sierra",
+    "corte": "Heliconia (Preventa)",
+    "restriccion": "Alergia: Aines"
+  },
+  {
+    "cedula": "1050721077",
+    "nombre": "María de los Ángeles Mendoza Arrieta",
+    "corte": "Heliconia (Preventa)",
+    "restriccion": "Alergia: Curitas"
+  },
+  {
+    "cedula": "1118366377",
+    "nombre": "Laura Sofía Claros Calderón",
+    "corte": "Heliconia (Preventa)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1002654433",
+    "nombre": "Isabela Palacio López",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1105369040",
+    "nombre": "Sara Bolívar Rodriguez",
+    "corte": "Girasol (General I)",
+    "restriccion": "Alergia: A la carne de cerdo"
+  },
+  {
+    "cedula": "1050036045",
+    "nombre": "Liliana Patricia Vásquez Costa",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1082925085",
+    "nombre": "Carlos Eduardo Espeleta Banquez",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1054866647",
+    "nombre": "Danna Sofía Tangarife Castaño",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1112151943",
+    "nombre": "Samuel Hernández Lucio",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1044625233",
+    "nombre": "Nathaly Sofía Navarro Gómez",
+    "corte": "Girasol (General I)",
+    "restriccion": "Alergia: Al polvo"
+  },
+  {
+    "cedula": "1137059174",
+    "nombre": "Samuel Osorio Sánchez",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1192801318",
+    "nombre": "Andrés Felipe Jiménez Parra",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1043124573",
+    "nombre": "Jolmarys Pacheco Vargas",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1104256446",
+    "nombre": "Diego Armando Álvarez Fernández",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1139426308",
+    "nombre": "Ana Gabriela González Franco",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1029601106",
+    "nombre": "Sharon Nicolle Otaya Meneses",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1039085244",
+    "nombre": "Katerin Juliana Ramos Leudo",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1052071658",
+    "nombre": "Breiner Juseff Ponnefz Ballesta",
+    "corte": "Girasol (General I)",
+    "restriccion": "Alergia: Rinitis"
+  },
+  {
+    "cedula": "1108559056",
+    "nombre": "María Paula Bravo Cárdenas",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1056122399",
+    "nombre": "Mery Fernanda Velasco Loaiza",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1108332613",
+    "nombre": "Clara Vanessa Viveros Torres",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1128050443",
+    "nombre": "Valentina Alfaro Padilla",
+    "corte": "Girasol (General I)",
+    "restriccion": "Alergia: A los perros y gatos"
+  },
+  {
+    "cedula": "1043969872",
+    "nombre": "Alaín José Medina Licona",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1111543869",
+    "nombre": "Pablo Victoria Victoria",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1051817646",
+    "nombre": "Eyleen Amparo Barrios España",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1085716334",
+    "nombre": "Miguel Angel de la Pava Raba",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1022147754",
+    "nombre": "Santiago Vélez Mira",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1221977714",
+    "nombre": "Dustin José Olivero Rovira",
+    "corte": "Girasol (General I)",
+    "restriccion": "Alergia: Mariscos - Comida de Mar | Dieta: Ninguna comida de mar"
+  },
+  {
+    "cedula": "110784181",
+    "nombre": "Karen Daniela Lagarejo Aguilar",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1041978352",
+    "nombre": "Gabriela Sofía Becerra Guerra",
+    "corte": "Girasol (General I)",
+    "restriccion": "Alergia: Ácaros"
+  },
+  {
+    "cedula": "1042852726",
+    "nombre": "Dylan Esteban Romero Parra",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1002032241",
+    "nombre": "Miguel Ángel Ariza Rentería",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1029500044",
+    "nombre": "María Paula Velasco Aldana",
+    "corte": "Girasol (General I)",
+    "restriccion": "Alergia: Insectos , huevos de codorniz, ácaros , polvo"
+  },
+  {
+    "cedula": "1142915357",
+    "nombre": "Laura Marcela González Berdugo",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1105364937",
+    "nombre": "Laura Sofía Muñoz Useche",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1014210510",
+    "nombre": "Juan Sebastián Lozano Moreno",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1001854540",
+    "nombre": "Joe Isaac Pérez Jiménez",
+    "corte": "Girasol (General I)",
+    "restriccion": "Alergia: Penicilina (Aún no comprobado)"
+  },
+  {
+    "cedula": "1051502226",
+    "nombre": "Luisa Fernanda Sáez Latorre",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1043294338",
+    "nombre": "Isaac David Garzón Espitia",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1091971941",
+    "nombre": "Daniel David Vargas Bermúdez",
+    "corte": "Girasol (General I)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1002163241",
+    "nombre": "Elías David García Torres",
+    "corte": "Orquídea (VIP)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1034989505",
+    "nombre": "Nicolás Gil Díaz",
+    "corte": "Orquídea (VIP)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1137974994",
+    "nombre": "Santiago Luis Caraballo Barrera",
+    "corte": "Orquídea (VIP)",
+    "restriccion": "Alergia: Camarones y comida de mar"
+  },
+  {
+    "cedula": "1007562889",
+    "nombre": "Mara Lucía Fajardo Rojas",
+    "corte": "Orquídea (VIP)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1001944363",
+    "nombre": "Andrés Antonio Campos Mogollón",
+    "corte": "Orquídea (VIP)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1044211576",
+    "nombre": "Sarah Sofía Eljach Carrillo",
+    "corte": "Heliconia (Preventa) + Excedente",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1005719531",
+    "nombre": "Sara Daniela Granada Acosta",
+    "corte": "Girasol (General I) + Excedente",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "101587839",
+    "nombre": "Juan José Restrepo Ruiz",
+    "corte": "Girasol (General I) + Excedente",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1193588954",
+    "nombre": "Cesar Luis Durán Rodríguez",
+    "corte": "Agapanto (General II) + Excedente",
+    "restriccion": "Alergia: No"
+  },
+  {
+    "cedula": "1062435252",
+    "nombre": "Sara Cura Marín",
+    "corte": "Agapanto (General II) + Excedente",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1007632180",
+    "nombre": "Santiago Taborda Garcés",
+    "corte": "Heliconia (Preventa) + Excedente",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1048064172",
+    "nombre": "Juan Sebastián Berdugo Sotelo",
+    "corte": "Girasol (General I) + Excedente",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1104545148",
+    "nombre": "Emanuel Ortiz Manjarrés",
+    "corte": "Girasol (General I) + Excedente",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1062274602",
+    "nombre": "Karen Sofía Mendoza Delgado",
+    "corte": "Heliconia (Preventa) + Excedente",
+    "restriccion": "Alergia: El jengibre y algunos mariscos"
+  },
+  {
+    "cedula": "1047037497",
+    "nombre": "José Ángel Villarreal Simanca",
+    "corte": "Agapanto (General II) + Excedente",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1089385159",
+    "nombre": "Maria Fernanda Muñoz Ospina",
+    "corte": "Agapanto (General II) + Excedente",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1107838173",
+    "nombre": "Semjase Luna Vásquez",
+    "corte": "Agapanto (General II) + Excedente",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1110364921",
+    "nombre": "Johan Manuel Caicedo Caicedo",
+    "corte": "Girasol (General I) + Excedente",
+    "restriccion": "Alergia: Loratadina"
+  },
+  {
+    "cedula": "1001853775",
+    "nombre": "Alessandro Villanueva Cantillo",
+    "corte": "Girasol (General I) + Excedente",
+    "restriccion": "Alergia: Al ácaro, y soy rinítico. | Dieta: Tengo TERIA hacia los lácteos y grasos."
+  },
+  {
+    "cedula": "1006371202",
+    "nombre": "Juan Sebastián Trujillo Monar",
+    "corte": "Agapanto (General II) + Excedente",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1066270415",
+    "nombre": "Francesco Cerchiaro Sánchez",
+    "corte": "Agapanto (General II) + Excedente",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1139429268",
+    "nombre": "Santiago Andrés Albadan Trillos",
+    "corte": "Heliconia (Preventa) + Excedente",
+    "restriccion": "Dieta: Sin azúcares"
+  },
+  {
+    "cedula": "1083567760",
+    "nombre": "Santiago José Olivero Rovira",
+    "corte": "Girasol (General I) + Excedente",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1050034350",
+    "nombre": "Daniel Villamizar Alvis",
+    "corte": "Girasol (General I) + Excedente",
+    "restriccion": "Alergia: Intolerante a la lactosa"
+  },
+  {
+    "cedula": "1002653138",
+    "nombre": "Alejandro López Aguirre",
+    "corte": "Heliconia (Preventa) + Excedente",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1044606569",
+    "nombre": "Geraldine Sofía Mendoza Anaya",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1100393131",
+    "nombre": "Shadia Ramírez Castillo",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1099991149",
+    "nombre": "Natalia Charith Vergara Pérez",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1043660133",
+    "nombre": "Lily Andrea Peñaranda Pérez",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1118827411",
+    "nombre": "Natalia Rangel Barba",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1105371087",
+    "nombre": "Miguel Fabricio Argüello Cedeño",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1007107961",
+    "nombre": "Samuel Álvarez Pareja",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1034990513",
+    "nombre": "Mariana Martínez Jaramillo",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1083865856",
+    "nombre": "Jorge David Castro Córdoba",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1016949194",
+    "nombre": "Paula Andrea Lemus Gutiérrez",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1016951467",
+    "nombre": "Dayana Valentina Montaña Lemus",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1088589197",
+    "nombre": "Diana Camila Martínez Soto",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1082999429",
+    "nombre": "Arlis Jhoan España Pinto",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Alergia: No"
+  },
+  {
+    "cedula": "1048070191",
+    "nombre": "Sofía Margarita Mendoza Paternina",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1036450135",
+    "nombre": "Isabella Aguas Oviedo",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1067282445",
+    "nombre": "Jorge Antonio Álvarez Sayas",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1068421100",
+    "nombre": "Maria Gabriela Julio Burgos",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Alergia: A los acaros y cucarachas"
+  },
+  {
+    "cedula": "1006554001",
+    "nombre": "Juan David Velandia Castillo",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1082240403",
+    "nombre": "Juan Andrés Buelvas Andrade",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1004368011",
+    "nombre": "Daniel Alejandro Guerrero Farelo",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Alergia: Mariscos"
+  },
+  {
+    "cedula": "223452226",
+    "nombre": "Jonathan Cruz Ramírez",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1043666685",
+    "nombre": "Andrea Valentina Ariza Marquez",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1110283830",
+    "nombre": "Alejandra Posada Mayorga",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Alergia: Camarones"
+  },
+  {
+    "cedula": "1006166520",
+    "nombre": "Juan Diego Martínez Piamba",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1048070445",
+    "nombre": "Juan Esteban Ortega Palacio",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1192812242",
+    "nombre": "Dilan Alid Lengua Molina",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1080424695",
+    "nombre": "Cristina Isabel Argota Cardona",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1081275935",
+    "nombre": "Anahí Catalina Melo Paz",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1138525631",
+    "nombre": "Sara Egas Basante",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1000534209",
+    "nombre": "Lukas Eduardo Neita Lloreda",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1002993897",
+    "nombre": "Lina Fernanda Moncayo Vargas",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1027150190",
+    "nombre": "Zara Andrea de los Ángeles Mora González",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1193226443",
+    "nombre": "Angélica María Tovar Puerta",
+    "corte": "Agapanto (General II)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1055753473",
+    "nombre": "Manuela Leal Montes",
+    "corte": "Ave del Paraíso (Mejor delegado)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "19274281",
+    "nombre": "Manuel Alfonso Mayorga Morato",
+    "corte": "Crisantemo (Inge)",
+    "restriccion": "Alergia: A la injusticia..."
+  },
+  {
+    "cedula": "1042249220",
+    "nombre": "Victor Manuel Cantillo Albor",
+    "corte": "Crisantemo (JDN)",
+    "restriccion": "Alergia: a nada"
+  },
+  {
+    "cedula": "1027953449",
+    "nombre": "Jackelin Domínguez Niño",
+    "corte": "Crisantemo (JDN)",
+    "restriccion": "Alergia: a nada"
+  },
+  {
+    "cedula": "1001819535",
+    "nombre": "Luisa Milena Acuña Pérez",
+    "corte": "Crisantemo (JDN)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1055751117",
+    "nombre": "Jerónimo Aguirre Gil",
+    "corte": "Crisantemo (JDN)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1029142666",
+    "nombre": "Diego Fernando Fandiño Quintero",
+    "corte": "Crisantemo (JDN)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1017925411",
+    "nombre": "Samuel Muñoz Lopera",
+    "corte": "Crisantemo (JDN)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1043126039",
+    "nombre": "Miguel Ángel Torrado Bonilla",
+    "corte": "Crisantemo (JDN)",
+    "restriccion": "Alergia: Ácaros"
+  },
+  {
+    "cedula": "1107839292",
+    "nombre": "Laura Sofía Barrera Ramirez",
+    "corte": "Crisantemo (JDN)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1089844231",
+    "nombre": "José David Cerón Rosero",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Alergia: PIÑA EN TODAS SUS PRESENTACIONES"
+  },
+  {
+    "cedula": "1013457074",
+    "nombre": "Catalina Arenas Mercado",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1137060609",
+    "nombre": "Manuela Castaño Sánchez",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1081052470",
+    "nombre": "Nicolás Benavides Coral",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Alergia: N.A"
+  },
+  {
+    "cedula": "1109117547",
+    "nombre": "Matías Alejandro Ramírez Rodríguez",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1062427011",
+    "nombre": "Jeremy Andres Salguero Gonzalez",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1137059293",
+    "nombre": "Alejandro Ospina Guevara",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Alergia: Ibuprofeno"
+  },
+  {
+    "cedula": "1048283520",
+    "nombre": "Yelitza Liney Tapia Sánchez",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1106514844",
+    "nombre": "Camilo José Lenis Maturana",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1052096905",
+    "nombre": "Luisa Fernanda Tapias Ramirez",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Alergia: Diclofenaco"
+  },
+  {
+    "cedula": "1043586463",
+    "nombre": "Valentina Maday Peña Cervantes",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1003215519",
+    "nombre": "Óscar Andrés Martínez Cantillo",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1112041634",
+    "nombre": "Isabella González Muñoz",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1002246721",
+    "nombre": "Daniel Enrique Pupo Gallego",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1142917130",
+    "nombre": "Camilo Andrés Palacios Carrillo",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1002777474",
+    "nombre": "Juan Camilo Pulido Chacón",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Alergia: No"
+  },
+  {
+    "cedula": "1107844756",
+    "nombre": "Valentina Castaño Cabal",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1091272371",
+    "nombre": "Jesús Alberto Zambrano Loaiza",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Alergia: Cerdo, camarones."
+  },
+  {
+    "cedula": "1042577362",
+    "nombre": "Nathalia María Quintana García",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Alergia: Canela, cebada, penicilina, ácaros y polvo | Dieta: No puedo comer granos ni lechuga"
+  },
+  {
+    "cedula": "1117349086",
+    "nombre": "Fabian Andrés Parra Calambas",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1038103633",
+    "nombre": "Valentina Polo Humanez",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1109920315",
+    "nombre": "Abril Sofía Galindo Camacho",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1085912401",
+    "nombre": "María José Veloz Jaramillo",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1084606308",
+    "nombre": "Nicolás Tapia Vesga",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1006320813",
+    "nombre": "Melissa Castro Salguero",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Alergia: Canela"
+  },
+  {
+    "cedula": "4927541",
+    "nombre": "Carlos Eduardo López Mejia",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Alergia: No"
+  },
+  {
+    "cedula": "1029141863",
+    "nombre": "Laura Valentina Parra Trujillo",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1004381521",
+    "nombre": "Álvaro José Orejarena Navarro",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1066269030",
+    "nombre": "Maria Clara Rojas Hernandez",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Alergia: No"
+  },
+  {
+    "cedula": "1056121407",
+    "nombre": "Mateo Castaño Ramírez",
+    "corte": "Boca de Dragón (Carpas - General III)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1033487577",
+    "nombre": "Liset Mariana García Hernández",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1043124288",
+    "nombre": "Jennifer María Corzo Carrillo",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1043590802",
+    "nombre": "Luis David Domínguez Cuello",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Alergia: al polvo"
+  },
+  {
+    "cedula": "1043135834",
+    "nombre": "Isaí Julieth Ariza Alvarino",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Alergia: Camarones"
+  },
+  {
+    "cedula": "1021925108",
+    "nombre": "Matías Aguirre Arbeláez",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1057575336",
+    "nombre": "Diego Alejandro Galvis Suárez",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1013123393",
+    "nombre": "Isabella Bernal Ferreira",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1025881703",
+    "nombre": "Andrea Builes Hincapié",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1033184606",
+    "nombre": "Ana María Duque Galeano",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Dieta: No consumo vegetales"
+  },
+  {
+    "cedula": "1077721935",
+    "nombre": "Julianna Romero Andrade",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Alergia: Hormigas, césped, cucarachas, ácaros"
+  },
+  {
+    "cedula": "1023636759",
+    "nombre": "Eliana María Foronda Rios",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1035973817",
+    "nombre": "María Camila García Restrepo",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Alergia: Penicilina, amoxocilina, axitromicina"
+  },
+  {
+    "cedula": "1045606438",
+    "nombre": "Larry Vasquez Gonzalez",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1110290310",
+    "nombre": "Isabella Otero Epe",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "50848001",
+    "nombre": "Ligia Elena Garces Otero",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1005664243",
+    "nombre": "Daniela Monterrosa Vergara",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1106515944",
+    "nombre": "Luisa Cristina Cañas Sánchez",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1082242361",
+    "nombre": "Fabian José Barrios Parra",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1192756820",
+    "nombre": "Yasmary Mileth Pautt Pestana",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1006616228",
+    "nombre": "Leider David Prada Rodríguez",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1118806672",
+    "nombre": "Maisa Ilin Mendoza Bonivento",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1006639792",
+    "nombre": "David Elías Castillo Devoz",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1192922824",
+    "nombre": "Iván Buelvas",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1122396121",
+    "nombre": "Vanessa Sofía Bettín Daza",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1118814251",
+    "nombre": "Kaner De Jesús García Rodríguez",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1066269698",
+    "nombre": "Ayleen Tatiana Oñate Mendoza",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1121339101",
+    "nombre": "Luis Ángel Silva",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Sin restricciones"
+  },
+  {
+    "cedula": "1033176186",
+    "nombre": "Sofia Hincapié Ibarguen",
+    "corte": "Hortensia (Externos)",
+    "restriccion": "Sin restricciones"
   }
-
-  window.onload = function() {
-    db.collection("registros_conal").orderBy("timestamp", "desc").onSnapshot((snapshot) => {
-      historialRegistros = [];
-      snapshot.forEach((doc) => {
-        historialRegistros.push({ firestoreId: doc.id, ...doc.data() });
-      });
-      if (!document.getElementById('tabStats').classList.contains('hidden')) actualizarEstadisticas();
-      if (!document.getElementById('tabLista').classList.contains('hidden')) renderizarLista();
-      if (!document.getElementById('tabAdmin').classList.contains('hidden')) renderizarAdminRegistros();
-    }, (error) => {
-      console.warn("Modo Offline activo:", error);
-    });
-
-    fetch('asistentes.json')
-      .then(res => res.json())
-      .then(data => {
-        baseAsistentes = data;
-        poblarFiltroCortes();
-      })
-      .catch(err => alert("Error cargando asistentes.json. Verifica que esté subido en GitHub."));
-
-    actualizarHoraLimiteVisual();
-    cargarHoraLimiteEnInput();
-  };
-
-  function actualizarHoraLimiteVisual() {
-    const mom = document.getElementById('filtroMomento').value;
-    const esAcreditacion = mom.includes("ACRED");
-    if (esAcreditacion) {
-      const hora = horasLimites[mom] || "08:30";
-      document.getElementById('infoHoraLimite').innerText = `🕒 Acreditación con multa por retraso: Límite ${hora} ($700 COP/min)`;
-    } else {
-      document.getElementById('infoHoraLimite').innerText = `🍽️ Momento de Alimentación / Control de Aforo (Sin multas de tiempo)`;
-    }
-  }
-
-  function cargarHoraLimiteEnInput() {
-    const mom = document.getElementById('adminMomentoSelect').value;
-    document.getElementById('inputHoraLimiteConfig').value = horasLimites[mom] || "08:30";
-  }
-
-  function guardarHoraLimite() {
-    const mom = document.getElementById('adminMomentoSelect').value;
-    const horaVal = document.getElementById('inputHoraLimiteConfig').value;
-    if (!horaVal) return alert("Selecciona una hora válida.");
-    horasLimites[mom] = horaVal;
-    localStorage.setItem('conal2026_horas_limites', JSON.stringify(horasLimites));
-    actualizarHoraLimiteVisual();
-    alert(`Hora límite actualizada para ${NOMBRES_MOMENTOS[mom]}: ${horaVal}`);
-  }
-
-  function realizarLogin() {
-    const u = document.getElementById('usuario').value.trim().toLowerCase();
-    const p = document.getElementById('password').value.trim();
-
-    if (USUARIOS_VALIDOS[u] && USUARIOS_VALIDOS[u].pass === p) {
-      usuarioLogueado = u;
-      rolActual = USUARIOS_VALIDOS[u].rol;
-      document.getElementById('userLogLabel').innerText = u;
-      document.getElementById('badgeRol').innerText = rolActual;
-      
-      if (rolActual === "ADMIN") {
-        document.getElementById('btnTabAdmin').classList.remove('hidden');
-      }
-      document.getElementById('loginScreen').classList.add('hidden');
-      document.getElementById('appScreen').classList.remove('hidden');
-      iniciarCamara();
-    } else {
-      alert("Usuario o contraseña incorrectos.");
-    }
-  }
-
-  function cerrarSesion() {
-    location.reload();
-  }
-
-  function cambiarTab(tabId, btn) {
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-    document.getElementById(tabId).classList.remove('hidden');
-    btn.classList.add('active');
-
-    if (tabId === 'tabLista') renderizarLista();
-    if (tabId === 'tabStats') actualizarEstadisticas();
-    if (tabId === 'tabAdmin') { renderizarAdminRegistros(); cargarHoraLimiteEnInput(); }
-  }
-
-  function iniciarCamara() {
-    if (escaneandoActivo) return;
-    html5QrCode = new Html5Qrcode("reader");
-    html5QrCode.start(
-      { facingMode: "environment" },
-      { fps: 15, qrbox: 240 },
-      (decodedText) => procesarValidacion(decodedText)
-    ).then(() => {
-      escaneandoActivo = true;
-    }).catch(err => {
-      console.warn("Cámara no iniciada:", err);
-    });
-  }
-
-  function procesarManual() {
-    const cedula = document.getElementById('inputManualCedula').value.trim();
-    if (!cedula) return alert("Digita una cédula válida.");
-    procesarValidacion(cedula);
-    document.getElementById('inputManualCedula').value = "";
-  }
-
-  function procesarValidacion(codigoCrudo) {
-    if (bloqueado) return;
-
-    const cedula = String(codigoCrudo).trim();
-    const ahoraMs = Date.now();
-
-    if (cedula === ultimoEscaneoCedula && (ahoraMs - ultimoEscaneoTiempo) < 3000) {
-      return;
-    }
-    ultimoEscaneoCedula = cedula;
-    ultimoEscaneoTiempo = ahoraMs;
-
-    bloqueado = true;
-
-    const momento = document.getElementById('filtroMomento').value;
-    const momentoNombre = NOMBRES_MOMENTOS[momento];
-
-    const asistente = baseAsistentes.find(a => String(a.cedula).trim() === cedula);
-
-    if (!asistente) {
-      reproducirSonido("ROJO");
-      mostrarAlertaFull("ROJO", "❌ NO ENCONTRADO", `Cédula: ${cedula}`, "Este documento no existe en la base de datos.", "");
-      return;
-    }
-
-    const yaExiste = historialRegistros.find(r => r.cedula === cedula && r.momento === momento);
-    if (yaExiste) {
-      reproducirSonido("AMARILLO");
-      mostrarAlertaFull("AMARILLO", "⚠️ YA FUE LEÍDO / REGISTRADO", asistente.nombre, `Corte: ${asistente.corte}`, `Ya registró este momento a las ${yaExiste.hora}.`);
-      return;
-    }
-
-    const esAcreditacion = momento.includes("ACRED");
-    const ahoraObj = new Date();
-    const horaActualMinutos = ahoraObj.getHours() * 60 + ahoraObj.getMinutes();
-    
-    let minutosRetraso = 0;
-    let valorMulta = 0;
-    
-    if (esAcreditacion) {
-      const horaLimiteStr = horasLimites[momento] || "08:30";
-      const [limH, limM] = horaLimiteStr.split(':').map(Number);
-      const horaLimiteMinutos = limH * 60 + limM;
-      if (horaActualMinutos > horaLimiteMinutos) {
-        minutosRetraso = horaActualMinutos - horaLimiteMinutos;
-        valorMulta = minutosRetraso * 700;
-      }
-    }
-
-    const tipoAlerta = valorMulta > 0 ? "MULTA" : "VERDE";
-    reproducirSonido(tipoAlerta);
-
-    const horaStr = String(ahoraObj.getHours()).padStart(2, '0') + ":" + String(ahoraObj.getMinutes()).padStart(2, '0');
-    const fechaStr = ahoraObj.toLocaleDateString('es-CO');
-
-    const restriccion = asistente.restriccion || "Sin restricciones";
-    const tieneAlertaComida = restriccion !== "Sin restricciones" && !["ninguna", "no aplica", "nada", "."].includes(restriccion.toLowerCase());
-
-    const nuevoReg = {
-      timestamp: ahoraMs,
-      fecha: fechaStr,
-      hora: horaStr,
-      momento: momento,
-      momentoNombre: momentoNombre,
-      cedula: cedula,
-      nombre: asistente.nombre,
-      corte: asistente.corte,
-      restriccion: restriccion,
-      operador: usuarioLogueado,
-      retrasoMinutos: minutosRetraso,
-      multaCOP: valorMulta
-    };
-
-    db.collection("registros_conal").add(nuevoReg)
-      .then(() => {
-        let detalleAlerta = `Momento: ${momentoNombre}`;
-        if (valorMulta > 0) {
-          detalleAlerta += ` | ⚠️ RETRASO ACREDITACIÓN: ${minutosRetraso} min • MULTA: $${valorMulta.toLocaleString('es-CO')} COP`;
-        }
-        if (tieneAlertaComida) {
-          detalleAlerta += ` | 🍽️ ALERTA ALIMENTARIA: ${restriccion}`;
-        }
-        
-        const tituloAlerta = valorMulta > 0 ? "⚠️ INGRESO CON MULTA DE ACREDITACIÓN" : "✅ PUEDE PASAR";
-        const claseOverlay = valorMulta > 0 ? "AMARILLO" : "VERDE";
-
-        mostrarAlertaFull(claseOverlay, tituloAlerta, asistente.nombre, `Corte: ${asistente.corte}`, detalleAlerta);
-      })
-      .catch((error) => {
-        alert("Error al guardar en la nube: " + error.message);
-        bloqueado = false;
-      });
-  }
-
-  function mostrarAlertaFull(tipo, titulo, nombre, corte, detalles) {
-    const overlay = document.getElementById('fullAlertOverlay');
-    overlay.className = tipo;
-    document.getElementById('alertTitle').innerText = titulo;
-    document.getElementById('alertName').innerText = nombre;
-    document.getElementById('alertCorte').innerText = corte;
-    document.getElementById('alertDetails').innerText = detalles;
-    
-    overlay.style.display = 'flex';
-
-    if (timerAlertaFull) clearTimeout(timerAlertaFull);
-
-    timerAlertaFull = setTimeout(() => {
-      cerrarAlertaFull();
-      if (tipo === "VERDE" || tipo === "AMARILLO") {
-        cambiarTab('tabStats', document.querySelectorAll('.tab-btn')[2]);
-      }
-    }, 8000);
-  }
-
-  function cerrarAlertaFull() {
-    if (timerAlertaFull) clearTimeout(timerAlertaFull);
-    document.getElementById('fullAlertOverlay').style.display = 'none';
-    bloqueado = false;
-  }
-
-  function poblarFiltroCortes() {
-    const sel = document.getElementById('filtroCorte');
-    const cortes = [...new Set(baseAsistentes.map(a => a.corte))].filter(Boolean);
-    cortes.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c;
-      opt.innerText = c;
-      sel.appendChild(opt);
-    });
-  }
-
-  function renderizarLista() {
-    const texto = document.getElementById('buscadorTexto').value.toLowerCase();
-    const corteSel = document.getElementById('filtroCorte').value;
-    const estadoSel = document.getElementById('filtroEstado').value;
-
-    const filtrados = baseAsistentes.filter(a => {
-      const coincideTexto = a.nombre.toLowerCase().includes(texto) || String(a.cedula).includes(texto);
-      const coincideCorte = corteSel === "TODOS" || a.corte === corteSel;
-      
-      const movsPersona = historialRegistros.filter(r => r.cedula === String(a.cedula));
-      const tieneRest = a.restriccion && a.restriccion !== "Sin restricciones" && !["ninguna", "no aplica", "nada", "."].includes(a.restriccion.toLowerCase());
-
-      let coincideEstado = true;
-      if (estadoSel === "CON_INGRESO") coincideEstado = movsPersona.length > 0;
-      if (estadoSel === "SIN_INGRESO") coincideEstado = movsPersona.length === 0;
-      if (estadoSel === "RESTRICCION") coincideEstado = tieneRest;
-
-      return coincideTexto && coincideCorte && coincideEstado;
-    });
-
-    document.getElementById('contadorFiltrados').innerText = filtrados.length;
-    const contenedor = document.getElementById('contenedorLista');
-    
-    contenedor.innerHTML = filtrados.map(a => {
-      const movs = historialRegistros.filter(r => r.cedula === String(a.cedula));
-      const tieneRest = a.restriccion && a.restriccion !== "Sin restricciones" && !["ninguna", "no aplica", "nada", "."].includes(a.restriccion.toLowerCase());
-      const tagsHtml = movs.map(m => {
-        let tagExtra = m.multaCOP > 0 ? ` <span class="tag tag-multa">+$${m.multaCOP.toLocaleString('es-CO')}</span>` : '';
-        return `<span class="tag">${m.momentoNombre.split('-')[1] || m.momentoNombre} (${m.hora})${tagExtra}</span>`;
-      }).join('');
-
-      return `
-        <div class="item-asistente ${tieneRest ? 'alerta' : ''}">
-          <div class="item-info">
-            <div class="item-nombre">${a.nombre}</div>
-            <div class="item-meta">CC: ${a.cedula} • ${a.corte}</div>
-            ${tieneRest ? `<div class="item-rest">🍽️ ${a.restriccion}</div>` : ''}
-            <div class="tags-mov">${tagsHtml || '<span style="font-size:11px; color:#64748b;">Sin registros</span>'}</div>
-          </div>
-          <div style="display: flex; flex-direction: column; gap: 4px;">
-            <button class="btn-sm" onclick="procesarValidacion('${a.cedula}')">Validar</button>
-            <button class="btn-sm btn-yellow" onclick="abrirModalInfraccion('${a.cedula}')">⚠️ Multa</button>
-            <button class="btn-sm btn-red" onclick="abrirModalSos('${a.cedula}')">🚨 S.O.S</button>
-          </div>
-        </div>
-      `;
-    }).join('');
-  }
-
-  // FUNCIONES PARA MODALES (INFRACCIONES Y S.O.S.)
-  function cerrarModal(modalId) {
-    document.getElementById(modalId).style.display = 'none';
-    asistenteActualPendiente = null;
-  }
-
-  function abrirModalInfraccion(cedula) {
-    const asistente = baseAsistentes.find(a => String(a.cedula) === String(cedula));
-    if (!asistente) return;
-    asistenteActualPendiente = asistente;
-
-    document.getElementById('modalAsistenteInfo').innerText = `${asistente.nombre} (CC: ${asistente.cedula} • ${asistente.corte})`;
-    document.getElementById('selectConceptoInfraccion').value = "KIT_EXTEMPORANEO";
-    document.getElementById('inputMinutosExtemporaneo').value = 10;
-    cambiarConceptoInfraccion();
-    document.getElementById('textObservacionInfraccion').value = "";
-    document.getElementById('modalInfraccion').style.display = 'flex';
-  }
-
-  function cambiarConceptoInfraccion() {
-    const concepto = document.getElementById('selectConceptoInfraccion').value;
-    const divMin = document.getElementById('divMinutosRetraso');
-    const inputValor = document.getElementById('inputValorMultaManual');
-
-    if (concepto === "KIT_EXTEMPORANEO") {
-      divMin.style.display = "block";
-      calcularValorManual();
-    } else {
-      divMin.style.display = "none";
-      if (concepto === "VISITA_INDUSTRIAL") inputValor.value = 40000;
-      else if (concepto === "ESPACIO_ACTIVIDAD") inputValor.value = 55000;
-      else if (concepto === "ZONAS_ALTERNAS") inputValor.value = 165000;
-      else if (concepto === "FUERA_INSTALACIONES") inputValor.value = 175000;
-      else if (concepto === "VESTIMENTA") inputValor.value = 60000;
-      else if (concepto === "OTRA") inputValor.value = 0;
-    }
-  }
-
-  function calcularValorManual() {
-    const mins = parseInt(document.getElementById('inputMinutosExtemporaneo').value) || 0;
-    document.getElementById('inputValorMultaManual').value = mins * 1000;
-  }
-
-  function guardarInfraccionManual() {
-    if (!asistenteActualPendiente) return;
-    const conceptoKey = document.getElementById('selectConceptoInfraccion').value;
-    const selectEl = document.getElementById('selectConceptoInfraccion');
-    const conceptoTexto = selectEl.options[selectEl.selectedIndex].text;
-    const valorMulta = parseInt(document.getElementById('inputValorMultaManual').value) || 0;
-    const observacion = document.getElementById('textObservacionInfraccion').value.trim();
-    const mins = conceptoKey === "KIT_EXTEMPORANEO" ? (parseInt(document.getElementById('inputMinutosExtemporaneo').value) || 0) : 0;
-
-    const ahoraObj = new Date();
-    const horaStr = String(ahoraObj.getHours()).padStart(2, '0') + ":" + String(ahoraObj.getMinutes()).padStart(2, '0');
-    const fechaStr = ahoraObj.toLocaleDateString('es-CO');
-
-    const nuevoReg = {
-      timestamp: Date.now(),
-      fecha: fechaStr,
-      hora: horaStr,
-      momento: "INFRACCION-EXTRA",
-      momentoNombre: `Sanción: ${conceptoTexto}`,
-      cedula: asistenteActualPendiente.cedula,
-      nombre: asistenteActualPendiente.nombre,
-      corte: asistenteActualPendiente.corte,
-      restriccion: asistenteActualPendiente.restriccion || "Sin restricciones",
-      operador: usuarioLogueado,
-      retrasoMinutos: mins,
-      multaCOP: valorMulta,
-      observacion: observacion
-    };
-
-    db.collection("registros_conal").add(nuevoReg)
-      .then(() => {
-        alert(`Sanción guardada por $${valorMulta.toLocaleString('es-CO')} COP.`);
-        cerrarModal('modalInfraccion');
-      })
-      .catch(error => alert("Error al guardar sanción: " + error.message));
-  }
-
-  function abrirModalSos(cedula) {
-    const asistente = baseAsistentes.find(a => String(a.cedula) === String(cedula));
-    if (!asistente) return;
-    asistenteActualPendiente = asistente;
-
-    document.getElementById('sosAsistenteInfo').innerText = `${asistente.nombre} (CC: ${asistente.cedula})`;
-    document.getElementById('sosDetallesMedico').innerHTML = `<strong>🍽️ Restricción / Condición:</strong> ${asistente.restriccion || 'Ninguna'}<br><strong>📌 Corte:</strong> ${asistente.corte}`;
-    document.getElementById('modalSos').style.display = 'flex';
-  }
-
-  function registrarIncidenteSos() {
-    if (!asistenteActualPendiente) return;
-    const ahoraObj = new Date();
-    const horaStr = String(ahoraObj.getHours()).padStart(2, '0') + ":" + String(ahoraObj.getMinutes()).padStart(2, '0');
-    
-    const nuevoReg = {
-      timestamp: Date.now(),
-      fecha: ahoraObj.toLocaleDateString('es-CO'),
-      hora: horaStr,
-      momento: "EMERGENCIA-SOS",
-      momentoNombre: "🚨 EMERGENCIA S.O.S. ATENDIDA",
-      cedula: asistenteActualPendiente.cedula,
-      nombre: asistenteActualPendiente.nombre,
-      corte: asistenteActualPendiente.corte,
-      restriccion: asistenteActualPendiente.restriccion || "Sin restricciones",
-      operador: usuarioLogueado,
-      retrasoMinutos: 0,
-      multaCOP: 0,
-      observacion: "Alerta de emergencia médica / seguridad reportada en campo."
-    };
-
-    db.collection("registros_conal").add(nuevoReg)
-      .then(() => {
-        alert("Incidencia S.O.S. registrada en la bitácora.");
-        cerrarModal('modalSos');
-      })
-      .catch(error => alert("Error: " + error.message));
-  }
-
-  function actualizarEstadisticas() {
-    const diaFiltro = document.getElementById('selectorDiaStats').value;
-    
-    const registrosFiltrados = historialRegistros.filter(r => {
-      if (diaFiltro === "TODOS") return true;
-      if (r.momento === "INFRACCION-EXTRA" || r.momento === "EMERGENCIA-SOS") return true;
-      return r.momento.startsWith(diaFiltro);
-    });
-
-    document.getElementById('kpiTotalBase').innerText = baseAsistentes.length;
-    
-    const cedulasUnicas = new Set(registrosFiltrados.map(r => r.cedula));
-    document.getElementById('kpiAsistentesUnicos').innerText = cedulasUnicas.size;
-    document.getElementById('kpiTotalMovs').innerText = registrosFiltrados.length;
-
-    const recaudoTotal = registrosFiltrados.reduce((acc, r) => acc + (r.multaCOP || 0), 0);
-    document.getElementById('kpiTotalMultas').innerText = `$${recaudoTotal.toLocaleString('es-CO')}`;
-
-    const momentosDelDia = Object.keys(NOMBRES_MOMENTOS).filter(key => {
-      if (diaFiltro === "TODOS") return true;
-      return key.startsWith(diaFiltro);
-    });
-
-    const divMom = document.getElementById('statsPorMomento');
-    divMom.innerHTML = momentosDelDia.map(key => {
-      const count = registrosFiltrados.filter(r => r.momento === key).length;
-      return `<div class="stat-row"><span>${NOMBRES_MOMENTOS[key]}</span><strong>${count} / ${baseAsistentes.length}</strong></div>`;
-    }).join('');
-
-    const cortes = [...new Set(baseAsistentes.map(a => a.corte))].filter(Boolean);
-    const divCorte = document.getElementById('statsPorCorte');
-    divCorte.innerHTML = cortes.map(c => {
-      const totalCorte = baseAsistentes.filter(a => a.corte === c).length;
-      const activosCorte = new Set(registrosFiltrados.filter(r => r.corte === c).map(r => r.cedula)).size;
-      return `<div class="stat-row"><span>${c}</span><strong>${activosCorte} / ${totalCorte}</strong></div>`;
-    }).join('');
-
-    const divHist = document.getElementById('historialReciente');
-    if (registrosFiltrados.length === 0) {
-      divHist.innerHTML = `<p style="color:var(--muted);">Aún no hay escaneos para este filtro.</p>`;
-    } else {
-      divHist.innerHTML = registrosFiltrados.slice(0, 15).map(r => `
-        <div class="stat-row">
-          <div>
-            <strong>${r.nombre}</strong> ${r.multaCOP > 0 ? `<span style="color:var(--red); font-size:11px;">(Multa: $${r.multaCOP.toLocaleString('es-CO')})</span>` : ''}<br>
-            <span style="color:var(--muted); font-size:11px;">${r.momentoNombre} • ${r.corte} (Op: ${r.operador || 'admin'})</span>
-          </div>
-          <div style="text-align:right;">
-            <span>${r.hora}</span>
-          </div>
-        </div>
-      `).join('');
-    }
-  }
-
-  function renderizarAdminRegistros() {
-    document.getElementById('totalRegistrosAdmin').innerText = historialRegistros.length;
-    const contenedor = document.getElementById('listaAdminRegistros');
-
-    if (historialRegistros.length === 0) {
-      contenedor.innerHTML = `<p style="color:var(--muted); font-size:13px;">No hay registros en la nube.</p>`;
-      return;
-    }
-
-    contenedor.innerHTML = historialRegistros.map(r => `
-      <div class="item-asistente">
-        <div class="item-info">
-          <div class="item-nombre">${r.nombre} (CC: ${r.cedula})</div>
-          <div class="item-meta">📌 ${r.momentoNombre} • 🕒 ${r.fecha} ${r.hora} ${r.multaCOP > 0 ? `| ⚠️ Valor: $${r.multaCOP.toLocaleString('es-CO')}` : ''} ${r.observacion ? `| Nota: ${r.observacion}` : ''}</div>
-        </div>
-        <div>
-          <button class="btn-sm btn-red" onclick="eliminarRegistroNube('${r.firestoreId}')">Borrar</button>
-        </div>
-      </div>
-    `).join('');
-  }
-
-  function eliminarRegistroNube(firestoreId) {
-    if (confirm("¿Estás seguro de borrar este registro de la nube?")) {
-      db.collection("registros_conal").doc(firestoreId).delete()
-        .then(() => alert("Registro eliminado."))
-        .catch((error) => alert("Error: " + error.message));
-    }
-  }
-
-  // DESCARGAS EN EXCEL (CSV)
-  function descargarReporteSeleccionado() {
-    const tipo = document.getElementById('selectorTipoDescarga').value;
-    let csv = "";
-    let nombreArchivo = `Reporte_CONAL2026_${tipo}_${new Date().toISOString().slice(0,10)}.csv`;
-
-    if (tipo.startsWith("INASISTENTES_")) {
-      const dia = tipo.split("_")[1];
-      const momentoIngreso = `${dia}-ACRED1`;
-      const cedulasPresentes = new Set(historialRegistros.filter(r => r.momento === momentoIngreso).map(r => String(r.cedula).trim()));
-      const faltantes = baseAsistentes.filter(a => !cedulasPresentes.has(String(a.cedula).trim()));
-
-      if (faltantes.length === 0) return alert("¡Excelente! No hay faltantes para esa acreditación.");
-
-      csv = "\uFEFFESTADO;CEDULA;NOMBRE;CORTE;RESTRICCION_ALIMENTARIA\n";
-      faltantes.forEach(a => {
-        csv += `PENDIENTE / NO ASISTIO;${a.cedula};"${a.nombre}";"${a.corte}";"${a.restriccion || 'Sin restricciones'}"\n`;
-      });
-    } else {
-      let datos = historialRegistros;
-
-      if (tipo === "MULTAS") {
-        datos = historialRegistros.filter(r => (r.multaCOP || 0) > 0);
-      } else if (tipo === "D1" || tipo === "D2" || tipo === "D3") {
-        datos = historialRegistros.filter(r => r.momento.startsWith(tipo) || r.momento === "INFRACCION-EXTRA" || r.momento === "EMERGENCIA-SOS");
-      }
-
-      if (datos.length === 0) return alert("No hay registros guardados bajo el filtro seleccionado.");
-
-      csv = "\uFEFFFECHA;HORA;MOMENTO;CEDULA;NOMBRE;CORTE;RESTRICCION;OPERADOR;MINUTOS_RETRASO;VALOR_MULTA_COP;OBSERVACION\n";
-      datos.forEach(r => {
-        csv += `${r.fecha};${r.hora};"${r.momentoNombre}";${r.cedula};"${r.nombre}";"${r.corte}";"${r.restriccion}";"${r.operador || 'admin'}";${r.retrasoMinutos || 0};${r.multaCOP || 0};"${r.observacion || ''}"\n`;
-      });
-    }
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = nombreArchivo;
-    a.click();
-  }
-
-  function limpiarTodoHistorial() {
-    if (confirm("⚠️ ADVERTENCIA: ¿Deseas borrar TODOS los registros de la base de datos en la nube?")) {
-      db.collection("registros_conal").get().then((querySnapshot) => {
-        const batch = db.batch();
-        querySnapshot.forEach((doc) => {
-          batch.delete(doc.ref);
-        });
-        return batch.commit();
-      }).then(() => {
-        alert("Base de datos en la nube vaciada por completo.");
-      }).catch((error) => {
-        alert("Error al limpiar: " + error.message);
-      });
-    }
-  }
-</script>
-</body>
-</html>
+]
