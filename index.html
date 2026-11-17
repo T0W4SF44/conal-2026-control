@@ -30,7 +30,7 @@
 
     /* HEADER & LOGO INSTITUCIONAL - TAMAÑO GIGANTE */
     .brand-header { background: var(--card); padding: 24px 16px; border-radius: 14px; text-align: center; margin-bottom: 14px; border: 1px solid #334155; }
-    .logo-img { max-height: 220px; width: 200%; max-width: 650px; margin-bottom: 10px; object-fit: contain; display: inline-block; }
+    .logo-img { max-height: 220px; width: 100%; max-width: 650px; margin-bottom: 10px; object-fit: contain; display: inline-block; }
     .brand-fallback { font-size: 32px; font-weight: 900; background: linear-gradient(45deg, #3b82f6, #10b981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     .topbar { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-size: 13px; color: var(--muted); border-top: 1px solid #334155; padding-top: 12px; }
     .badge-rol { background: var(--primary); color: white; padding: 2px 8px; border-radius: 12px; font-weight: bold; }
@@ -571,7 +571,7 @@
     const momento = document.getElementById('filtroMomento').value;
     const momentoNombre = NOMBRES_MOMENTOS[momento];
 
-    const asistente = baseAsistentes.find(a => String(a.cedula).trim() === cedula);
+    const asistente = baseAsistentes.find(a => String(a.cedula || a['NÚMERO DOCUMENTO']).trim() === cedula);
 
     if (!asistente) {
       reproducirSonido("ROJO");
@@ -579,10 +579,13 @@
       return;
     }
 
+    const nombreAsistente = asistente.nombre || asistente['NOMBRE COMPLETO'];
+    const corteAsistente = asistente.corte || asistente['CORTE'];
+
     const yaExiste = historialRegistros.find(r => r.cedula === cedula && r.momento === momento);
     if (yaExiste) {
       reproducirSonido("AMARILLO");
-      mostrarAlertaFull("AMARILLO", "⚠️ YA FUE LEÍDO / REGISTRADO", asistente.nombre, `Corte: ${asistente.corte}`, `Ya registró este momento a las ${yaExiste.hora}.`);
+      mostrarAlertaFull("AMARILLO", "⚠️ YA FUE LEÍDO / REGISTRADO", nombreAsistente, `Corte: ${corteAsistente}`, `Ya registró este momento a las ${yaExiste.hora}.`);
       return;
     }
 
@@ -619,8 +622,8 @@
       momento: momento,
       momentoNombre: momentoNombre,
       cedula: cedula,
-      nombre: asistente.nombre,
-      corte: asistente.corte,
+      nombre: nombreAsistente,
+      corte: corteAsistente,
       restriccion: restriccion,
       operador: usuarioLogueado,
       retrasoMinutos: minutosRetraso,
@@ -640,7 +643,7 @@
         const tituloAlerta = valorMulta > 0 ? "⚠️ INGRESO CON MULTA DE ACREDITACIÓN" : "✅ PUEDE PASAR";
         const claseOverlay = valorMulta > 0 ? "AMARILLO" : "VERDE";
 
-        mostrarAlertaFull(claseOverlay, tituloAlerta, asistente.nombre, `Corte: ${asistente.corte}`, detalleAlerta);
+        mostrarAlertaFull(claseOverlay, tituloAlerta, nombreAsistente, `Corte: ${corteAsistente}`, detalleAlerta);
       })
       .catch((error) => {
         alert("Error al guardar en la nube: " + error.message);
@@ -650,21 +653,17 @@
 
   function mostrarAlertaFull(tipo, titulo, nombre, corte, detalles) {
     const overlay = document.getElementById('fullAlertOverlay');
-    overlay.className = tipo;
+    overlay.className = '';
+    overlay.classList.add(tipo);
     document.getElementById('alertTitle').innerText = titulo;
     document.getElementById('alertName').innerText = nombre;
     document.getElementById('alertCorte').innerText = corte;
     document.getElementById('alertDetails').innerText = detalles;
-    
     overlay.style.display = 'flex';
 
     if (timerAlertaFull) clearTimeout(timerAlertaFull);
-
     timerAlertaFull = setTimeout(() => {
       cerrarAlertaFull();
-      if (tipo === "VERDE" || tipo === "AMARILLO") {
-        cambiarTab('tabStats', document.querySelectorAll('.tab-btn')[2]);
-      }
     }, 8000);
   }
 
@@ -675,100 +674,171 @@
   }
 
   function poblarFiltroCortes() {
-    const sel = document.getElementById('filtroCorte');
-    const cortes = [...new Set(baseAsistentes.map(a => a.corte))].filter(Boolean);
+    const cortes = [...new Set(baseAsistentes.map(a => a.corte || a['CORTE']))].sort();
+    const select = document.getElementById('filtroCorte');
     cortes.forEach(c => {
       const opt = document.createElement('option');
       opt.value = c;
       opt.innerText = c;
-      sel.appendChild(opt);
+      select.appendChild(opt);
     });
   }
 
   function renderizarLista() {
-    const texto = document.getElementById('buscadorTexto').value.toLowerCase();
+    const txt = document.getElementById('buscadorTexto').value.toLowerCase().trim();
     const corteSel = document.getElementById('filtroCorte').value;
     const estadoSel = document.getElementById('filtroEstado').value;
+    const momento = document.getElementById('filtroMomento').value;
 
     const filtrados = baseAsistentes.filter(a => {
-      const coincideTexto = a.nombre.toLowerCase().includes(texto) || String(a.cedula).includes(texto);
-      const coincideCorte = corteSel === "TODOS" || a.corte === corteSel;
-      
-      const movsPersona = historialRegistros.filter(r => r.cedula === String(a.cedula));
-      const tieneRest = a.restriccion && a.restriccion !== "Sin restricciones" && !["ninguna", "no aplica", "nada", "."].includes(a.restriccion.toLowerCase());
+      const nombre = a.nombre || a['NOMBRE COMPLETO'] || '';
+      const cedula = a.cedula || a['NÚMERO DOCUMENTO'] || '';
+      const corte = a.corte || a['CORTE'] || '';
 
-      let coincideEstado = true;
-      if (estadoSel === "CON_INGRESO") coincideEstado = movsPersona.length > 0;
-      if (estadoSel === "SIN_INGRESO") coincideEstado = movsPersona.length === 0;
-      if (estadoSel === "RESTRICCION") coincideEstado = tieneRest;
+      const matchTxt = String(nombre).toLowerCase().includes(txt) || String(cedula).includes(txt);
+      const matchCorte = corteSel === 'TODOS' || corte === corteSel;
 
-      return coincideTexto && coincideCorte && coincideEstado;
+      const tieneIngresoMomento = historialRegistros.some(r => r.cedula === String(cedula) && r.momento === momento);
+      let matchEstado = true;
+      if (estadoSel === 'CON_INGRESO') matchEstado = tieneIngresoMomento;
+      if (estadoSel === 'SIN_INGRESO') matchEstado = !tieneIngresoMomento;
+      if (estadoSel === 'RESTRICCION') {
+        const rest = (a.restriccion || "").toLowerCase();
+        matchEstado = rest !== "sin restricciones" && !["ninguna", "no aplica", "nada", "."].includes(rest);
+      }
+
+      return matchTxt && matchCorte && matchEstado;
     });
 
     document.getElementById('contadorFiltrados').innerText = filtrados.length;
     const contenedor = document.getElementById('contenedorLista');
-    
-    contenedor.innerHTML = filtrados.map(a => {
-      const movs = historialRegistros.filter(r => r.cedula === String(a.cedula));
-      const tieneRest = a.restriccion && a.restriccion !== "Sin restricciones" && !["ninguna", "no aplica", "nada", "."].includes(a.restriccion.toLowerCase());
-      const tagsHtml = movs.map(m => {
-        let tagExtra = m.multaCOP > 0 ? ` <span class="tag tag-multa">+$${m.multaCOP.toLocaleString('es-CO')}</span>` : '';
-        return `<span class="tag">${m.momentoNombre.split('-')[1] || m.momentoNombre} (${m.hora})${tagExtra}</span>`;
-      }).join('');
 
-      return `
-        <div class="item-asistente ${tieneRest ? 'alerta' : ''}">
+    if (filtrados.length === 0) {
+      contenedor.innerHTML = `<p style="text-align: center; color: var(--muted); padding: 20px;">No se encontraron asistentes con los filtros seleccionados.</p>`;
+      return;
+    }
+
+    let html = '';
+    filtrados.forEach(a => {
+      const cedula = a.cedula || a['NÚMERO DOCUMENTO'];
+      const nombre = a.nombre || a['NOMBRE COMPLETO'];
+      const corte = a.corte || a['CORTE'];
+      const restriccion = a.restriccion || "Sin restricciones";
+
+      const regAsistente = historialRegistros.filter(r => r.cedula === String(cedula));
+      const tieneAlerta = restriccion && restriccion !== "Sin restricciones" && !["ninguna", "no aplica", "nada", "."].includes(restriccion.toLowerCase());
+
+      let tagsHtml = '';
+      regAsistente.forEach(r => {
+        tagsHtml += `<span class="tag">✅ ${r.momento} (${r.hora})</span>`;
+        if (r.multaCOP > 0) {
+          tagsHtml += `<span class="tag tag-multa">⚠️ Multa: $${r.multaCOP.toLocaleString('es-CO')}</span>`;
+        }
+      });
+
+      html += `
+        <div class="item-asistente ${tieneAlerta ? 'alerta' : ''}">
           <div class="item-info">
-            <div class="item-nombre">${a.nombre}</div>
-            <div class="item-meta">CC: ${a.cedula} • ${a.corte}</div>
-            ${tieneRest ? `<div class="item-rest">🍽️ ${a.restriccion}</div>` : ''}
-            <div class="tags-mov">${tagsHtml || '<span style="font-size:11px; color:#64748b;">Sin registros</span>'}</div>
+            <div class="item-nombre">${nombre}</div>
+            <div class="item-meta">Cédula: <strong>${cedula}</strong> • Corte: ${corte}</div>
+            ${tieneAlerta ? `<div class="item-rest">⚠️ ${restriccion}</div>` : ''}
+            <div class="tags-mov">${tagsHtml || '<span style="color:var(--muted); font-size:11px;">Sin registros en este momento</span>'}</div>
           </div>
           <div style="display: flex; flex-direction: column; gap: 4px;">
-            <button class="btn-sm" onclick="procesarValidacion('${a.cedula}')">Validar</button>
-            <button class="btn-sm btn-yellow" onclick="abrirModalInfraccion('${a.cedula}')">⚠️ Multa</button>
-            <button class="btn-sm btn-red" onclick="abrirModalSos('${a.cedula}')">🚨 S.O.S</button>
+            <button onclick="abrirModalSos('${cedula}')" class="btn-sm btn-red" style="margin:0;">🚨 SOS</button>
+            ${rolActual === 'ADMIN' ? `<button onclick="abrirModalInfraccion('${cedula}')" class="btn-sm btn-yellow" style="margin:0;">⚠️ Multa</button>` : ''}
           </div>
         </div>
       `;
-    }).join('');
+    });
+    contenedor.innerHTML = html;
   }
 
-  // FUNCIONES PARA MODALES (INFRACCIONES Y S.O.S.)
-  function cerrarModal(modalId) {
-    document.getElementById(modalId).style.display = 'none';
-    asistenteActualPendiente = null;
+  function abrirModalSos(cedula) {
+    const a = baseAsistentes.find(item => String(item.cedula || item['NÚMERO DOCUMENTO']) === String(cedula));
+    if (!a) return alert("Asistente no encontrado.");
+    asistenteActualPendiente = a;
+
+    const nombre = a.nombre || a['NOMBRE COMPLETO'];
+    const corte = a.corte || a['CORTE'];
+    const numDoc = a.cedula || a['NÚMERO DOCUMENTO'];
+    const contactoEmergencia = a.contacto_emergencia || a['CONTACTO EMERGENCIA'] || 'No registrado';
+    const telEmergencia = a.telefono_emergencia || a['CEL CONTACTO EMERGENCIA'] || 'Sin tel';
+    const restriccion = a.restriccion || 'Ninguna';
+
+    document.getElementById('sosAsistenteInfo').innerText = `${nombre} (${corte})\nCédula: ${numDoc}`;
+    
+    let infoMedica = `<strong>Restricciones / Alergias / Médicas:</strong> ${restriccion}<br>`;
+    infoMedica += `<strong>Contacto de Emergencia:</strong> ${contactoEmergencia} (${telEmergencia})`;
+    document.getElementById('sosDetallesMedico').innerHTML = infoMedica;
+    
+    const telLlamada = telEmergencia !== 'Sin tel' ? telEmergencia.replace(/[^0-9+]/g, '') : '3100000000';
+    document.getElementById('btnLlamarEmergencia').href = `tel:${telLlamada}`;
+    document.getElementById('modalSos').style.display = 'flex';
+  }
+
+  function registrarIncidenteSos() {
+    if (!asistenteActualPendiente) return;
+    const a = asistenteActualPendiente;
+    const ahoraObj = new Date();
+    
+    const regIncidente = {
+      timestamp: Date.now(),
+      fecha: ahoraObj.toLocaleDateString('es-CO'),
+      hora: String(ahoraObj.getHours()).padStart(2, '0') + ":" + String(ahoraObj.getMinutes()).padStart(2, '0'),
+      momento: "INCIDENTE_SOS",
+      momentoNombre: "🚨 Incidente / Emergencia S.O.S.",
+      cedula: a.cedula || a['NÚMERO DOCUMENTO'],
+      nombre: a.nombre || a['NOMBRE COMPLETO'],
+      corte: a.corte || a['CORTE'],
+      restriccion: a.restriccion || "Sin restricciones",
+      operador: usuarioLogueado,
+      retrasoMinutos: 0,
+      multaCOP: 0
+    };
+
+    db.collection("registros_conal").add(regIncidente).then(() => {
+      alert("Incidencia de emergencia registrada correctamente en la bitácora central.");
+      cerrarModal('modalSos');
+    }).catch(err => alert("Error al registrar: " + err.message));
   }
 
   function abrirModalInfraccion(cedula) {
-    const asistente = baseAsistentes.find(a => String(a.cedula) === String(cedula));
-    if (!asistente) return;
-    asistenteActualPendiente = asistente;
+    const a = baseAsistentes.find(item => String(item.cedula || item['NÚMERO DOCUMENTO']) === String(cedula));
+    if (!a) return;
+    asistenteActualPendiente = a;
+    
+    const nombre = a.nombre || a['NOMBRE COMPLETO'];
+    const numDoc = a.cedula || a['NÚMERO DOCUMENTO'];
+    const corte = a.corte || a['CORTE'];
 
-    document.getElementById('modalAsistenteInfo').innerText = `${asistente.nombre} (CC: ${asistente.cedula} • ${asistente.corte})`;
+    document.getElementById('modalAsistenteInfo').innerText = `${nombre} — Cédula: ${numDoc} (${corte})`;
     document.getElementById('selectConceptoInfraccion').value = "KIT_EXTEMPORANEO";
-    document.getElementById('inputMinutosExtemporaneo').value = 10;
     cambiarConceptoInfraccion();
     document.getElementById('textObservacionInfraccion').value = "";
     document.getElementById('modalInfraccion').style.display = 'flex';
   }
 
   function cambiarConceptoInfraccion() {
-    const concepto = document.getElementById('selectConceptoInfraccion').value;
+    const val = document.getElementById('selectConceptoInfraccion').value;
     const divMin = document.getElementById('divMinutosRetraso');
-    const inputValor = document.getElementById('inputValorMultaManual');
+    const inputVal = document.getElementById('inputValorMultaManual');
 
-    if (concepto === "KIT_EXTEMPORANEO") {
+    if (val === "KIT_EXTEMPORANEO") {
       divMin.style.display = "block";
+      document.getElementById('inputMinutosExtemporaneo').value = 10;
       calcularValorManual();
     } else {
       divMin.style.display = "none";
-      if (concepto === "VISITA_INDUSTRIAL") inputValor.value = 40000;
-      else if (concepto === "ESPACIO_ACTIVIDAD") inputValor.value = 55000;
-      else if (concepto === "ZONAS_ALTERNAS") inputValor.value = 165000;
-      else if (concepto === "FUERA_INSTALACIONES") inputValor.value = 175000;
-      else if (concepto === "VESTIMENTA") inputValor.value = 60000;
-      else if (concepto === "OTRA") inputValor.value = 0;
+      const precios = {
+        "VISITA_INDUSTRIAL": 40000,
+        "ESPACIO_ACTIVIDAD": 55000,
+        "ZONAS_ALTERNAS": 165000,
+        "FUERA_INSTALACIONES": 175000,
+        "VESTIMENTA": 60000,
+        "OTRA": 0
+      };
+      inputVal.value = precios[val] || 0;
     }
   }
 
@@ -779,222 +849,180 @@
 
   function guardarInfraccionManual() {
     if (!asistenteActualPendiente) return;
-    const conceptoKey = document.getElementById('selectConceptoInfraccion').value;
-    const selectEl = document.getElementById('selectConceptoInfraccion');
-    const conceptoTexto = selectEl.options[selectEl.selectedIndex].text;
+    const a = asistenteActualPendiente;
+    const concepto = document.getElementById('selectConceptoInfraccion').value;
     const valorMulta = parseInt(document.getElementById('inputValorMultaManual').value) || 0;
-    const observacion = document.getElementById('textObservacionInfraccion').value.trim();
-    const mins = conceptoKey === "KIT_EXTEMPORANEO" ? (parseInt(document.getElementById('inputMinutosExtemporaneo').value) || 0) : 0;
-
+    const obs = document.getElementById('textObservacionInfraccion').value.trim();
     const ahoraObj = new Date();
-    const horaStr = String(ahoraObj.getHours()).padStart(2, '0') + ":" + String(ahoraObj.getMinutes()).padStart(2, '0');
-    const fechaStr = ahoraObj.toLocaleDateString('es-CO');
 
-    const nuevoReg = {
-      timestamp: Date.now(),
-      fecha: fechaStr,
-      hora: horaStr,
-      momento: "INFRACCION-EXTRA",
-      momentoNombre: `Sanción: ${conceptoTexto}`,
-      cedula: asistenteActualPendiente.cedula,
-      nombre: asistenteActualPendiente.nombre,
-      corte: asistenteActualPendiente.corte,
-      restriccion: asistenteActualPendiente.restriccion || "Sin restricciones",
-      operador: usuarioLogueado,
-      retrasoMinutos: mins,
-      multaCOP: valorMulta,
-      observacion: observacion
-    };
-
-    db.collection("registros_conal").add(nuevoReg)
-      .then(() => {
-        alert(`Sanción guardada por $${valorMulta.toLocaleString('es-CO')} COP.`);
-        cerrarModal('modalInfraccion');
-      })
-      .catch(error => alert("Error al guardar sanción: " + error.message));
-  }
-
-  function abrirModalSos(cedula) {
-    const asistente = baseAsistentes.find(a => String(a.cedula) === String(cedula));
-    if (!asistente) return;
-    asistenteActualPendiente = asistente;
-
-    document.getElementById('sosAsistenteInfo').innerText = `${asistente.nombre} (CC: ${asistente.cedula})`;
-    document.getElementById('sosDetallesMedico').innerHTML = `<strong>🍽️ Restricción / Condición:</strong> ${asistente.restriccion || 'Ninguna'}<br><strong>📌 Corte:</strong> ${asistente.corte}`;
-    document.getElementById('modalSos').style.display = 'flex';
-  }
-
-  function registrarIncidenteSos() {
-    if (!asistenteActualPendiente) return;
-    const ahoraObj = new Date();
-    const horaStr = String(ahoraObj.getHours()).padStart(2, '0') + ":" + String(ahoraObj.getMinutes()).padStart(2, '0');
-    
-    const nuevoReg = {
+    const regMulta = {
       timestamp: Date.now(),
       fecha: ahoraObj.toLocaleDateString('es-CO'),
-      hora: horaStr,
-      momento: "EMERGENCIA-SOS",
-      momentoNombre: "🚨 EMERGENCIA S.O.S. ATENDIDA",
-      cedula: asistenteActualPendiente.cedula,
-      nombre: asistenteActualPendiente.nombre,
-      corte: asistenteActualPendiente.corte,
-      restriccion: asistenteActualPendiente.restriccion || "Sin restricciones",
+      hora: String(ahoraObj.getHours()).padStart(2, '0') + ":" + String(ahoraObj.getMinutes()).padStart(2, '0'),
+      momento: `MULTA_${concepto}`,
+      momentoNombre: `Sanción: ${concepto}`,
+      cedula: a.cedula || a['NÚMERO DOCUMENTO'],
+      nombre: a.nombre || a['NOMBRE COMPLETO'],
+      corte: a.corte || a['CORTE'],
+      restriccion: obs || "Sanción manual aplicada por administración",
       operador: usuarioLogueado,
       retrasoMinutos: 0,
-      multaCOP: 0,
-      observacion: "Alerta de emergencia médica / seguridad reportada en campo."
+      multaCOP: valorMulta
     };
 
-    db.collection("registros_conal").add(nuevoReg)
-      .then(() => {
-        alert("Incidencia S.O.S. registrada en la bitácora.");
-        cerrarModal('modalSos');
-      })
-      .catch(error => alert("Error: " + error.message));
+    db.collection("registros_conal").add(regMulta).then(() => {
+      alert("Infracción registrada exitosamente con su respectiva multa.");
+      cerrarModal('modalInfraccion');
+    }).catch(err => alert("Error al registrar sanción: " + err.message));
+  }
+
+  function cerrarModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
   }
 
   function actualizarEstadisticas() {
-    const diaFiltro = document.getElementById('selectorDiaStats').value;
-    
-    const registrosFiltrados = historialRegistros.filter(r => {
-      if (diaFiltro === "TODOS") return true;
-      if (r.momento === "INFRACCION-EXTRA" || r.momento === "EMERGENCIA-SOS") return true;
-      return r.momento.startsWith(diaFiltro);
+    const filtroDia = document.getElementById('selectorDiaStats').value;
+    const baseFiltrada = historialRegistros.filter(r => {
+      if (filtroDia === 'TODOS') return true;
+      return r.momento && r.momento.startsWith(filtroDia);
     });
 
     document.getElementById('kpiTotalBase').innerText = baseAsistentes.length;
     
-    const cedulasUnicas = new Set(registrosFiltrados.map(r => r.cedula));
-    document.getElementById('kpiAsistentesUnicos').innerText = cedulasUnicas.size;
-    document.getElementById('kpiTotalMovs').innerText = registrosFiltrados.length;
+    const unicos = new Set(baseFiltrada.map(r => r.cedula));
+    document.getElementById('kpiAsistentesUnicos').innerText = unicos.size;
+    document.getElementById('kpiTotalMovs').innerText = baseFiltrada.length;
 
-    const recaudoTotal = registrosFiltrados.reduce((acc, r) => acc + (r.multaCOP || 0), 0);
-    document.getElementById('kpiTotalMultas').innerText = `$${recaudoTotal.toLocaleString('es-CO')}`;
+    let sumaMultas = baseFiltrada.reduce((acc, r) => acc + (r.multaCOP || 0), 0);
+    document.getElementById('kpiTotalMultas').innerText = `$${sumaMultas.toLocaleString('es-CO')}`;
 
-    const momentosDelDia = Object.keys(NOMBRES_MOMENTOS).filter(key => {
-      if (diaFiltro === "TODOS") return true;
-      return key.startsWith(diaFiltro);
+    // Progreso por momento
+    let porMomento = {};
+    baseFiltrada.forEach(r => {
+      porMomento[r.momentoNombre] = (porMomento[r.momentoNombre] || 0) + 1;
     });
 
-    const divMom = document.getElementById('statsPorMomento');
-    divMom.innerHTML = momentosDelDia.map(key => {
-      const count = registrosFiltrados.filter(r => r.momento === key).length;
-      return `<div class="stat-row"><span>${NOMBRES_MOMENTOS[key]}</span><strong>${count} / ${baseAsistentes.length}</strong></div>`;
-    }).join('');
-
-    const cortes = [...new Set(baseAsistentes.map(a => a.corte))].filter(Boolean);
-    const divCorte = document.getElementById('statsPorCorte');
-    divCorte.innerHTML = cortes.map(c => {
-      const totalCorte = baseAsistentes.filter(a => a.corte === c).length;
-      const activosCorte = new Set(registrosFiltrados.filter(r => r.corte === c).map(r => r.cedula)).size;
-      return `<div class="stat-row"><span>${c}</span><strong>${activosCorte} / ${totalCorte}</strong></div>`;
-    }).join('');
-
-    const divHist = document.getElementById('historialReciente');
-    if (registrosFiltrados.length === 0) {
-      divHist.innerHTML = `<p style="color:var(--muted);">Aún no hay escaneos para este filtro.</p>`;
-    } else {
-      divHist.innerHTML = registrosFiltrados.slice(0, 15).map(r => `
-        <div class="stat-row">
-          <div>
-            <strong>${r.nombre}</strong> ${r.multaCOP > 0 ? `<span style="color:var(--red); font-size:11px;">(Multa: $${r.multaCOP.toLocaleString('es-CO')})</span>` : ''}<br>
-            <span style="color:var(--muted); font-size:11px;">${r.momentoNombre} • ${r.corte} (Op: ${r.operador || 'admin'})</span>
-          </div>
-          <div style="text-align:right;">
-            <span>${r.hora}</span>
-          </div>
-        </div>
-      `).join('');
+    let htmlMom = '';
+    for (let [momName, count] of Object.entries(porMomento)) {
+      htmlMom += `<div class="stat-row"><span>${momName}</span><strong>${count} asistencias</strong></div>`;
     }
+    document.getElementById('statsPorMomento').innerHTML = htmlMom || '<p style="color:var(--muted); font-size:13px;">Sin registros en este periodo.</p>';
+
+    // Aforo por corte
+    let porCorte = {};
+    baseFiltrada.forEach(r => {
+      porCorte[r.corte] = (porCorte[r.corte] || 0) + 1;
+    });
+
+    let htmlCorte = '';
+    for (let [corteName, count] of Object.entries(porCorte)) {
+      htmlCorte += `<div class="stat-row"><span>${corteName}</span><strong>${count} ingresos</strong></div>`;
+    }
+    document.getElementById('statsPorCorte').innerHTML = htmlCorte || '<p style="color:var(--muted); font-size:13px;">Sin registros en este periodo.</p>';
+
+    // Historial reciente
+    let htmlReciente = '';
+    baseFiltrada.slice(0, 8).forEach(r => {
+      htmlReciente += `<div class="stat-row"><span><strong>${r.nombre}</strong> (${r.hora})</span><span style="color:var(--muted);">${r.momentoNombre}</span></div>`;
+    });
+    document.getElementById('historialReciente').innerHTML = htmlReciente || '<p style="color:var(--muted); font-size:13px;">Sin escaneos recientes.</p>';
   }
 
   function renderizarAdminRegistros() {
     document.getElementById('totalRegistrosAdmin').innerText = historialRegistros.length;
     const contenedor = document.getElementById('listaAdminRegistros');
-
-    if (historialRegistros.length === 0) {
-      contenedor.innerHTML = `<p style="color:var(--muted); font-size:13px;">No hay registros en la nube.</p>`;
-      return;
-    }
-
-    contenedor.innerHTML = historialRegistros.map(r => `
-      <div class="item-asistente">
-        <div class="item-info">
-          <div class="item-nombre">${r.nombre} (CC: ${r.cedula})</div>
-          <div class="item-meta">📌 ${r.momentoNombre} • 🕒 ${r.fecha} ${r.hora} ${r.multaCOP > 0 ? `| ⚠️ Valor: $${r.multaCOP.toLocaleString('es-CO')}` : ''} ${r.observacion ? `| Nota: ${r.observacion}` : ''}</div>
+    
+    let html = '';
+    historialRegistros.slice(0, 50).forEach(r => {
+      html += `
+        <div class="stat-row" style="align-items: center;">
+          <div>
+            <strong>${r.nombre}</strong><br>
+            <span style="font-size:11px; color:var(--muted);">${r.momentoNombre} • ${r.fecha} ${r.hora} (Op: ${r.operador})</span>
+          </div>
+          ${rolActual === 'ADMIN' ? `<button onclick="borrarRegistroIndividual('${r.firestoreId}')" class="btn-sm btn-red" style="padding:4px 8px; margin:0;">Eliminar</button>` : ''}
         </div>
-        <div>
-          <button class="btn-sm btn-red" onclick="eliminarRegistroNube('${r.firestoreId}')">Borrar</button>
-        </div>
-      </div>
-    `).join('');
+      `;
+    });
+    contenedor.innerHTML = html || '<p style="color:var(--muted); text-align:center;">No hay registros en la base de datos.</p>';
   }
 
-  function eliminarRegistroNube(firestoreId) {
-    if (confirm("¿Estás seguro de borrar este registro de la nube?")) {
-      db.collection("registros_conal").doc(firestoreId).delete()
-        .then(() => alert("Registro eliminado."))
-        .catch((error) => alert("Error: " + error.message));
-    }
-  }
-
-  // DESCARGAS EN EXCEL (CSV)
-  function descargarReporteSeleccionado() {
-    const tipo = document.getElementById('selectorTipoDescarga').value;
-    let csv = "";
-    let nombreArchivo = `Reporte_CONAL2026_${tipo}_${new Date().toISOString().slice(0,10)}.csv`;
-
-    if (tipo.startsWith("INASISTENTES_")) {
-      const dia = tipo.split("_")[1];
-      const momentoIngreso = `${dia}-ACRED1`;
-      const cedulasPresentes = new Set(historialRegistros.filter(r => r.momento === momentoIngreso).map(r => String(r.cedula).trim()));
-      const faltantes = baseAsistentes.filter(a => !cedulasPresentes.has(String(a.cedula).trim()));
-
-      if (faltantes.length === 0) return alert("¡Excelente! No hay faltantes para esa acreditación.");
-
-      csv = "\uFEFFESTADO;CEDULA;NOMBRE;CORTE;RESTRICCION_ALIMENTARIA\n";
-      faltantes.forEach(a => {
-        csv += `PENDIENTE / NO ASISTIO;${a.cedula};"${a.nombre}";"${a.corte}";"${a.restriccion || 'Sin restricciones'}"\n`;
-      });
-    } else {
-      let datos = historialRegistros;
-
-      if (tipo === "MULTAS") {
-        datos = historialRegistros.filter(r => (r.multaCOP || 0) > 0);
-      } else if (tipo === "D1" || tipo === "D2" || tipo === "D3") {
-        datos = historialRegistros.filter(r => r.momento.startsWith(tipo) || r.momento === "INFRACCION-EXTRA" || r.momento === "EMERGENCIA-SOS");
-      }
-
-      if (datos.length === 0) return alert("No hay registros guardados bajo el filtro seleccionado.");
-
-      csv = "\uFEFFFECHA;HORA;MOMENTO;CEDULA;NOMBRE;CORTE;RESTRICCION;OPERADOR;MINUTOS_RETRASO;VALOR_MULTA_COP;OBSERVACION\n";
-      datos.forEach(r => {
-        csv += `${r.fecha};${r.hora};"${r.momentoNombre}";${r.cedula};"${r.nombre}";"${r.corte}";"${r.restriccion}";"${r.operador || 'admin'}";${r.retrasoMinutos || 0};${r.multaCOP || 0};"${r.observacion || ''}"\n`;
-      });
-    }
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = nombreArchivo;
-    a.click();
+  function borrarRegistroIndividual(id) {
+    if (!confirm("¿Estás seguro de eliminar este registro del servidor?")) return;
+    db.collection("registros_conal").doc(id).delete().then(() => {
+      // Se actualiza en tiempo real con onSnapshot
+    }).catch(err => alert("Error al eliminar: " + err.message));
   }
 
   function limpiarTodoHistorial() {
-    if (confirm("⚠️ ADVERTENCIA: ¿Deseas borrar TODOS los registros de la base de datos en la nube?")) {
-      db.collection("registros_conal").get().then((querySnapshot) => {
-        const batch = db.batch();
-        querySnapshot.forEach((doc) => {
-          batch.delete(doc.ref);
-        });
-        return batch.commit();
-      }).then(() => {
-        alert("Base de datos en la nube vaciada por completo.");
-      }).catch((error) => {
-        alert("Error al limpiar: " + error.message);
+    if (!confirm("⚠️ ¿ATENCIÓN! ¿Estás completamente seguro de borrar TODO el historial de la base de datos en la nube? Esta acción no se puede deshacer.")) return;
+    
+    const batch = db.batch();
+    db.collection("registros_conal").get().then((querySnapshot) => {
+      querySnapshot.forEach((doc) => {
+        batch.delete(doc.ref);
       });
+      return batch.commit();
+    }).then(() => {
+      alert("Se ha borrado todo el historial con éxito.");
+    }).catch((err) => {
+      alert("Error al limpiar historial: " + err.message);
+    });
+  }
+
+  function descargarReporteSeleccionado() {
+    const tipo = document.getElementById('selectorTipoDescarga').value;
+    let datosAExportar = [];
+    let nombreArchivo = "Reporte_CONAL_2026.csv";
+
+    if (tipo === 'TODOS') {
+      datosAExportar = historialRegistros;
+      nombreArchivo = "Historial_Consolidado_CONAL2026.csv";
+    } else if (tipo === 'MULTAS') {
+      datosAExportar = historialRegistros.filter(r => (r.multaCOP || 0) > 0);
+      nombreArchivo = "Reporte_Multas_Infracciones_CONAL2026.csv";
+    } else if (tipo === 'D1' || tipo === 'D2' || tipo === 'D3') {
+      datosAExportar = historialRegistros.filter(r => r.momento && r.momento.startsWith(tipo));
+      nombreArchivo = `Reporte_${tipo}_CONAL2026.csv`;
+    } else if (tipo.startsWith('INASISTENTES_')) {
+      const dia = tipo.replace('INASISTENTES_', '');
+      const cedulasQueAsistieron = new Set(historialRegistros.filter(r => r.momento && r.momento.startsWith(dia)).map(r => r.cedula));
+      datosAExportar = baseAsistentes.filter(a => !cedulasQueAsistieron.has(String(a.cedula || a['NÚMERO DOCUMENTO']))).map(a => ({
+        fecha: "N/A", hora: "N/A", momento: `FALTANTE_${dia}`, momentoNombre: `No asistió al ${dia}`,
+        cedula: a.cedula || a['NÚMERO DOCUMENTO'], nombre: a.nombre || a['NOMBRE COMPLETO'], corte: a.corte || a['CORTE'], restriccion: a.restriccion || "Sin restricciones", operador: "SISTEMA", retrasoMinutos: 0, multaCOP: 0
+      }));
+      nombreArchivo = `Inasistentes_${dia}_CONAL2026.csv`;
     }
+
+    if (datosAExportar.length === 0) {
+      return alert("No hay datos para exportar con los criterios seleccionados.");
+    }
+
+    let csvContent = "\uFEFFFecha,Hora,Momento,Cédula,Nombre,Corte,Restricción_Médica,Operador,Min_Retraso,Multa_COP\n";
+    datosAExportar.forEach(r => {
+      const fila = [
+        r.fecha || "",
+        r.hora || "",
+        `"${r.momentoNombre || r.momento || ""}"`,
+        r.cedula || "",
+        `"${r.nombre || ""}"`,
+        `"${r.corte || ""}"`,
+        `"${(r.restriccion || "").replace(/"/g, '""')}"`,
+        r.operador || "",
+        r.retrasoMinutos || 0,
+        r.multaCOP || 0
+      ].join(",");
+      csvContent += fila + "\n";
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", nombreArchivo);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 </script>
 </body>
