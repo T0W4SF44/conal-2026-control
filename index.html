@@ -28,11 +28,11 @@
     .btn-sm { padding: 6px 10px; font-size: 12px; width: auto; margin-top: 0; }
     .hidden { display: none !important; }
 
-    /* Header & Logo Institucional en Gran Tamaño */
-    .brand-header { background: var(--card); padding: 20px 16px; border-radius: 14px; text-align: center; margin-bottom: 14px; border: 1px solid #334155; }
-    .logo-img { max-height: 300px; width: 100%; max-width: 650px; margin-bottom: 8px; object-fit: contain; display: inline-block; }
-    .brand-fallback { font-size: 28px; font-weight: 900; background: linear-gradient(45deg, #3b82f6, #10b981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .topbar { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font-size: 13px; color: var(--muted); border-top: 1px solid #334155; padding-top: 10px; }
+    /* HEADER & LOGO INSTITUCIONAL - TAMAÑO GIGANTE */
+    .brand-header { background: var(--card); padding: 24px 16px; border-radius: 14px; text-align: center; margin-bottom: 14px; border: 1px solid #334155; }
+    .logo-img { max-height: 350px; width: 100%; max-width: 650px; margin-bottom: 10px; object-fit: contain; display: inline-block; }
+    .brand-fallback { font-size: 32px; font-weight: 900; background: linear-gradient(45deg, #3b82f6, #10b981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-size: 13px; color: var(--muted); border-top: 1px solid #334155; padding-top: 12px; }
     .badge-rol { background: var(--primary); color: white; padding: 2px 8px; border-radius: 12px; font-weight: bold; }
 
     /* Navegación */
@@ -76,8 +76,8 @@
     .tag-multa { background: #78350f; color: #fef3c7; }
     .box-panel { margin-top: 14px; background: #0f172a; padding: 14px; border-radius: 10px; border: 1px solid #334155; }
     
-    /* Modal de Infracciones / Multas Manuales */
-    #modalInfraccion {
+    /* Modales */
+    .modal-overlay {
       position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8);
       z-index: 9998; display: none; justify-content: center; align-items: center; padding: 16px;
     }
@@ -94,13 +94,13 @@
   <div style="margin-top: 20px; font-size: 13px; opacity: 0.8;">(Toca en cualquier parte para continuar)</div>
 </div>
 
-<!-- MODAL DE INFRACCIONES Y MULTAS MANUALES -->
-<div id="modalInfraccion">
+<!-- MODAL DE INFRACCIONES / MULTAS MANUALES -->
+<div id="modalInfraccion" class="modal-overlay">
   <div class="card" style="width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto;">
-    <h3>⚠️ Registrar Infracción / Multa</h3>
+    <h3>⚠️ Registrar Infracción / Sanción</h3>
     <p id="modalAsistenteInfo" style="font-size: 13px; color: var(--muted); margin-bottom: 10px;"></p>
     
-    <label style="font-size: 12px;">Selecciona el Concepto de Infracción:</label>
+    <label style="font-size: 12px;">Selecciona el Concepto:</label>
     <select id="selectConceptoInfraccion" onchange="cambiarConceptoInfraccion()">
       <option value="KIT_EXTEMPORANEO">No acreditación y reclamación extemporánea kit ($1.000/min)</option>
       <option value="VISITA_INDUSTRIAL">Inasistencia injustificada a visita industrial ($40.000)</option>
@@ -117,19 +117,32 @@
     </div>
 
     <div style="margin-top: 8px;">
-      <label style="font-size: 12px;">Valor Total de la Multa (COP):</label>
+      <label style="font-size: 12px;">Valor Total (COP):</label>
       <input type="number" id="inputValorMultaManual" value="0">
     </div>
 
     <div style="margin-top: 8px;">
       <label style="font-size: 12px;">Observación detallada:</label>
-      <textarea id="textObservacionInfraccion" rows="2" placeholder="Escribe detalles del incidente..."></textarea>
+      <textarea id="textObservacionInfraccion" rows="2" placeholder="Detalles del incidente..."></textarea>
     </div>
 
     <div style="display: flex; gap: 8px; margin-top: 14px;">
       <button onclick="guardarInfraccionManual()" class="btn-green" style="margin:0;">Guardar Sanción</button>
-      <button onclick="cerrarModalInfraccion()" class="btn-sec" style="margin:0;">Cancelar</button>
+      <button onclick="cerrarModal('modalInfraccion')" class="btn-sec" style="margin:0;">Cancelar</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL S.O.S. / EMERGENCIA -->
+<div id="modalSos" class="modal-overlay">
+  <div class="card" style="width: 100%; max-width: 480px; text-align: center; border: 2px solid var(--red);">
+    <h3 style="color: var(--red);">🚨 ATENCIÓN: EMERGENCIA S.O.S.</h3>
+    <p id="sosAsistenteInfo" style="font-size: 16px; font-weight: bold; margin: 12px 0;"></p>
+    <div id="sosDetallesMedico" style="background: #0f172a; padding: 12px; border-radius: 8px; font-size: 14px; color: #fcd34d; margin-bottom: 16px; text-align: left;"></div>
+    
+    <a id="btnLlamarEmergencia" href="tel:3100000000" style="display: block; background: var(--red); color: white; padding: 14px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-bottom: 10px;">📞 LLAMAR A SEGURIDAD / MÉDICO</a>
+    <button onclick="registrarIncidenteSos()" class="btn-yellow" style="margin-top: 0;">📝 Registrar Incidencia en Bitácora</button>
+    <button onclick="cerrarModal('modalSos')" class="btn-sec" style="margin-top: 10px;">Cerrar</button>
   </div>
 </div>
 
@@ -279,9 +292,9 @@
     <div id="tabAdmin" class="tab-content hidden">
       <div class="card">
         <h3>Panel de Administración y Control</h3>
-        <p style="font-size: 13px; color: var(--muted);">Configura las horas de cierre de las <strong>Acreditaciones</strong> ($700 COP/min de retraso). Las comidas y refrigerios son solo de control de aforo sin multa.</p>
+        <p style="font-size: 13px; color: var(--muted);">Configura las horas de cierre de las <strong>Acreditaciones</strong> ($700 COP/min de retraso). Las comidas y refrigerios son solo control de aforo.</p>
         
-        <!-- BLOQUE 1: HORAS LÍMITE (SOLO ACREDITACIONES) -->
+        <!-- BLOQUE 1: HORAS LÍMITE -->
         <div class="box-panel">
           <h4 style="font-size: 14px; margin-bottom: 8px;">🕒 1. Definir Hora Límite de Acreditaciones</h4>
           <select id="adminMomentoSelect" onchange="cargarHoraLimiteEnInput()">
@@ -301,7 +314,7 @@
           </div>
         </div>
 
-        <!-- BLOQUE 2: CENTRO DE DESCARGAS A LA CARTA -->
+        <!-- BLOQUE 2: DESCARGAS A LA CARTA -->
         <div class="box-panel">
           <h4 style="font-size: 14px; margin-bottom: 6px;">📥 2. Centro de Descargas en Excel (CSV)</h4>
           <select id="selectorTipoDescarga">
@@ -317,11 +330,11 @@
           <button onclick="descargarReporteSeleccionado()" class="btn-green">⬇️ Descargar Archivo Excel Seleccionado</button>
         </div>
 
-        <!-- BLOQUE 3: GUÍA PARA FIJAR COMO APP EN CELULAR -->
+        <!-- BLOQUE 3: GUÍA PWA -->
         <div class="box-panel" style="border-color: #3b82f6;">
           <h4 style="font-size: 14px; margin-bottom: 6px; color: #60a5fa;">📱 Cómo instalar esta web como App Móvil</h4>
           <p style="font-size: 12px; color: var(--muted); margin: 0 0 6px 0;"><strong>En Android (Chrome):</strong> Toca los 3 puntos arriba a la derecha y selecciona "Instalar aplicación" o "Agregar a pantalla principal".</p>
-          <p style="font-size: 12px; color: var(--muted); margin: 0;"><strong>En iPhone (Safari):</strong> Toca el botón Compartir (cuadrado con flecha) y selecciona "Agregar a inicio".</p>
+          <p style="font-size: 12px; color: var(--muted); margin: 0;"><strong>En iPhone (Safari):</strong> Toca el botón Compartir y selecciona "Agregar a inicio".</p>
         </div>
 
         <!-- BLOQUE 4: HISTORIAL EN VIVO -->
@@ -586,7 +599,7 @@
       const horaLimiteMinutos = limH * 60 + limM;
       if (horaActualMinutos > horaLimiteMinutos) {
         minutosRetraso = horaActualMinutos - horaLimiteMinutos;
-        valorMulta = minutosRetraso * 700; // $700 COP por min de retraso en acreditación
+        valorMulta = minutosRetraso * 700;
       }
     }
 
@@ -714,13 +727,19 @@
           <div style="display: flex; flex-direction: column; gap: 4px;">
             <button class="btn-sm" onclick="procesarValidacion('${a.cedula}')">Validar</button>
             <button class="btn-sm btn-yellow" onclick="abrirModalInfraccion('${a.cedula}')">⚠️ Multa</button>
+            <button class="btn-sm btn-red" onclick="abrirModalSos('${a.cedula}')">🚨 S.O.S</button>
           </div>
         </div>
       `;
     }).join('');
   }
 
-  // FUNCIONES PARA EL MODAL DE INFRACCIONES / MULTAS MANUALES
+  // FUNCIONES PARA MODALES (INFRACCIONES Y S.O.S.)
+  function cerrarModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+    asistenteActualPendiente = null;
+  }
+
   function abrirModalInfraccion(cedula) {
     const asistente = baseAsistentes.find(a => String(a.cedula) === String(cedula));
     if (!asistente) return;
@@ -732,11 +751,6 @@
     cambiarConceptoInfraccion();
     document.getElementById('textObservacionInfraccion').value = "";
     document.getElementById('modalInfraccion').style.display = 'flex';
-  }
-
-  function cerrarModalInfraccion() {
-    document.getElementById('modalInfraccion').style.display = 'none';
-    asistenteActualPendiente = null;
   }
 
   function cambiarConceptoInfraccion() {
@@ -760,7 +774,7 @@
 
   function calcularValorManual() {
     const mins = parseInt(document.getElementById('inputMinutosExtemporaneo').value) || 0;
-    document.getElementById('inputValorMultaManual').value = mins * 1000; // $1.000 / min para kit extemporáneo
+    document.getElementById('inputValorMultaManual').value = mins * 1000;
   }
 
   function guardarInfraccionManual() {
@@ -794,12 +808,49 @@
 
     db.collection("registros_conal").add(nuevoReg)
       .then(() => {
-        alert(`Sanción guardada exitosamente por $${valorMulta.toLocaleString('es-CO')} COP.`);
-        cerrarModalInfraccion();
+        alert(`Sanción guardada por $${valorMulta.toLocaleString('es-CO')} COP.`);
+        cerrarModal('modalInfraccion');
       })
-      .catch(error => {
-        alert("Error al guardar sanción: " + error.message);
-      });
+      .catch(error => alert("Error al guardar sanción: " + error.message));
+  }
+
+  function abrirModalSos(cedula) {
+    const asistente = baseAsistentes.find(a => String(a.cedula) === String(cedula));
+    if (!asistente) return;
+    asistenteActualPendiente = asistente;
+
+    document.getElementById('sosAsistenteInfo').innerText = `${asistente.nombre} (CC: ${asistente.cedula})`;
+    document.getElementById('sosDetallesMedico').innerHTML = `<strong>🍽️ Restricción / Condición:</strong> ${asistente.restriccion || 'Ninguna'}<br><strong>📌 Corte:</strong> ${asistente.corte}`;
+    document.getElementById('modalSos').style.display = 'flex';
+  }
+
+  function registrarIncidenteSos() {
+    if (!asistenteActualPendiente) return;
+    const ahoraObj = new Date();
+    const horaStr = String(ahoraObj.getHours()).padStart(2, '0') + ":" + String(ahoraObj.getMinutes()).padStart(2, '0');
+    
+    const nuevoReg = {
+      timestamp: Date.now(),
+      fecha: ahoraObj.toLocaleDateString('es-CO'),
+      hora: horaStr,
+      momento: "EMERGENCIA-SOS",
+      momentoNombre: "🚨 EMERGENCIA S.O.S. ATENDIDA",
+      cedula: asistenteActualPendiente.cedula,
+      nombre: asistenteActualPendiente.nombre,
+      corte: asistenteActualPendiente.corte,
+      restriccion: asistenteActualPendiente.restriccion || "Sin restricciones",
+      operador: usuarioLogueado,
+      retrasoMinutos: 0,
+      multaCOP: 0,
+      observacion: "Alerta de emergencia médica / seguridad reportada en campo."
+    };
+
+    db.collection("registros_conal").add(nuevoReg)
+      .then(() => {
+        alert("Incidencia S.O.S. registrada en la bitácora.");
+        cerrarModal('modalSos');
+      })
+      .catch(error => alert("Error: " + error.message));
   }
 
   function actualizarEstadisticas() {
@@ -807,7 +858,7 @@
     
     const registrosFiltrados = historialRegistros.filter(r => {
       if (diaFiltro === "TODOS") return true;
-      if (r.momento === "INFRACCION-EXTRA") return true;
+      if (r.momento === "INFRACCION-EXTRA" || r.momento === "EMERGENCIA-SOS") return true;
       return r.momento.startsWith(diaFiltro);
     });
 
@@ -894,7 +945,7 @@
     let nombreArchivo = `Reporte_CONAL2026_${tipo}_${new Date().toISOString().slice(0,10)}.csv`;
 
     if (tipo.startsWith("INASISTENTES_")) {
-      const dia = tipo.split("_")[1]; // D1, D2 o D3
+      const dia = tipo.split("_")[1];
       const momentoIngreso = `${dia}-ACRED1`;
       const cedulasPresentes = new Set(historialRegistros.filter(r => r.momento === momentoIngreso).map(r => String(r.cedula).trim()));
       const faltantes = baseAsistentes.filter(a => !cedulasPresentes.has(String(a.cedula).trim()));
@@ -911,7 +962,7 @@
       if (tipo === "MULTAS") {
         datos = historialRegistros.filter(r => (r.multaCOP || 0) > 0);
       } else if (tipo === "D1" || tipo === "D2" || tipo === "D3") {
-        datos = historialRegistros.filter(r => r.momento.startsWith(tipo) || (r.momento === "INFRACCION-EXTRA" && tipo === "D1"));
+        datos = historialRegistros.filter(r => r.momento.startsWith(tipo) || r.momento === "INFRACCION-EXTRA" || r.momento === "EMERGENCIA-SOS");
       }
 
       if (datos.length === 0) return alert("No hay registros guardados bajo el filtro seleccionado.");
