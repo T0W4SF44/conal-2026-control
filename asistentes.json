@@ -3635,7 +3635,7 @@
     "CAPÍTULO": "UTP",
     "DIRECCIÓN": "JDC-IC-CCP",
     "CONTACTO EMERGENCIA": "Valentina Gordillo",
-    "CEL CONTACTO EMERGENCIA": "‪+57 316 2938998‬",
+    "CEL CONTACTO EMERGENCIA": "+57 316 2938998",
     "ALERGIAS": "Si",
     "QUÉ ALERGIA": "PIÑA EN TODAS SUS PRESENTACIONES",
     "CONDICIÓN ALIMENTARIA": "Ninguna",
@@ -3646,7 +3646,7 @@
     "corte": "Boca de Dragón (Carpas - General III)",
     "telefono": "3164020592",
     "contacto_emergencia": "Valentina Gordillo",
-    "telefono_emergencia": "‪+57 316 2938998‬",
+    "telefono_emergencia": "+57 316 2938998",
     "restriccion": "Alergia: PIÑA EN TODAS SUS PRESENTACIONES"
   },
   {
@@ -3859,7 +3859,7 @@
     "CELULAR": "3117730085",
     "CAPÍTULO": "UNIATLÁNTICO",
     "DIRECCIÓN": "Desarrollo",
-    "CONTACTO EMERGENCIA": "⁠Yoselin Tapias (hermana)",
+    "CONTACTO EMERGENCIA": "Yoselin Tapias (hermana)",
     "CEL CONTACTO EMERGENCIA": "3059359262",
     "ALERGIAS": "Si",
     "QUÉ ALERGIA": "Diclofenaco",
@@ -3870,7 +3870,7 @@
     "nombre": "Luisa Fernanda Tapias Ramirez",
     "corte": "Boca de Dragón (Carpas - General III)",
     "telefono": "3117730085",
-    "contacto_emergencia": "⁠Yoselin Tapias (hermana)",
+    "contacto_emergencia": "Yoselin Tapias (hermana)",
     "telefono_emergencia": "3059359262",
     "restriccion": "Alergia: Diclofenaco"
   },
@@ -4635,7 +4635,7 @@
     "CAPÍTULO": "EXTERNO",
     "DIRECCIÓN": "N/A",
     "CONTACTO EMERGENCIA": "Stella Rios Carvajal. Tía",
-    "CEL CONTACTO EMERGENCIA": "3117959042‬",
+    "CEL CONTACTO EMERGENCIA": "3117959042",
     "ALERGIAS": "No",
     "QUÉ ALERGIA": "N/A",
     "CONDICIÓN ALIMENTARIA": "Ninguna",
@@ -4646,7 +4646,7 @@
     "corte": "Hortensia (Externos)",
     "telefono": "3135884822",
     "contacto_emergencia": "Stella Rios Carvajal. Tía",
-    "telefono_emergencia": "3117959042‬",
+    "telefono_emergencia": "3117959042",
     "restriccion": "Sin restricciones"
   },
   {
@@ -4835,7 +4835,7 @@
     "CAPÍTULO": "EXTERNO",
     "DIRECCIÓN": "N/A",
     "CONTACTO EMERGENCIA": "Sugey Pestana",
-    "CEL CONTACTO EMERGENCIA": "‪3244469041‬",
+    "CEL CONTACTO EMERGENCIA": "3244469041",
     "ALERGIAS": "No",
     "QUÉ ALERGIA": "N/A",
     "CONDICIÓN ALIMENTARIA": "Ninguna",
@@ -4846,7 +4846,7 @@
     "corte": "Hortensia (Externos)",
     "telefono": "3226077282",
     "contacto_emergencia": "Sugey Pestana",
-    "telefono_emergencia": "‪3244469041‬",
+    "telefono_emergencia": "3244469041",
     "restriccion": "Médica: Anemia"
   },
   {
@@ -4910,7 +4910,7 @@
     "CAPÍTULO": "EXTERNO",
     "DIRECCIÓN": "N/A",
     "CONTACTO EMERGENCIA": "Virginia Devoz",
-    "CEL CONTACTO EMERGENCIA": "315 7286986‬",
+    "CEL CONTACTO EMERGENCIA": "315 7286986",
     "ALERGIAS": "No",
     "QUÉ ALERGIA": "Nada",
     "CONDICIÓN ALIMENTARIA": "Ninguna",
@@ -4921,7 +4921,7 @@
     "corte": "Hortensia (Externos)",
     "telefono": "3165348431",
     "contacto_emergencia": "Virginia Devoz",
-    "telefono_emergencia": "315 7286986‬",
+    "telefono_emergencia": "315 7286986",
     "restriccion": "Sin restricciones"
   },
   {
