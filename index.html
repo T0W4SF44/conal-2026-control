@@ -744,7 +744,8 @@
             ${tieneAlerta ? `<div class="item-rest">⚠️ ${restriccion}</div>` : ''}
             <div class="tags-mov">${tagsHtml || '<span style="color:var(--muted); font-size:11px;">Sin registros en este momento</span>'}</div>
           </div>
-          <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="display: flex; flex-direction: column; gap: 4px; min-width: 90px;">
+            <button onclick="procesarValidacion('${cedula}')" class="btn-sm btn-green" style="margin:0;">✅ Validar</button>
             <button onclick="abrirModalSos('${cedula}')" class="btn-sm btn-red" style="margin:0;">🚨 SOS</button>
             ${rolActual === 'ADMIN' ? `<button onclick="abrirModalInfraccion('${cedula}')" class="btn-sm btn-yellow" style="margin:0;">⚠️ Multa</button>` : ''}
           </div>
