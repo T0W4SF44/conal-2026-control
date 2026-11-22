@@ -21,6 +21,7 @@
     input, select, textarea { width: 100%; padding: 12px; margin: 6px 0; border-radius: 8px; border: 1px solid #475569; font-size: 15px; background: var(--input); color: white; }
     button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 8px; }
     button:active { opacity: 0.9; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-sec { background: #475569; }
     .btn-green { background: #059669; }
     .btn-yellow { background: #d97706; }
@@ -288,15 +289,15 @@
       </div>
     </div>
 
-    <!-- PESTAÑA 4: ADMIN (HORAS LÍMITE, DESCARGAS Y MÓVIL PWA) -->
+    <!-- PESTAÑA 4: ADMIN (HORAS LÍMITE, RECÁLCULO SEGURO, DESCARGAS Y MÓVIL PWA) -->
     <div id="tabAdmin" class="tab-content hidden">
       <div class="card">
         <h3>Panel de Administración y Control</h3>
-        <p style="font-size: 13px; color: var(--muted);">Configura las horas de cierre de las <strong>Acreditaciones</strong> ($700 COP/min de retraso). Las comidas y refrigerios son solo control de aforo.</p>
+        <p style="font-size: 13px; color: var(--muted);">Configura las horas de cierre de las <strong>Acreditaciones</strong> y recalcula multas ya registradas sin borrar asistencias.</p>
         
-        <!-- BLOQUE 1: HORAS LÍMITE -->
+        <!-- BLOQUE 1: HORAS LÍMITE Y RECÁLCULO SEGURO -->
         <div class="box-panel">
-          <h4 style="font-size: 14px; margin-bottom: 8px;">🕒 1. Definir Hora Límite de Acreditaciones</h4>
+          <h4 style="font-size: 14px; margin-bottom: 8px;">🕒 1. Hora Límite y Recálculo de Multas</h4>
           <select id="adminMomentoSelect" onchange="cargarHoraLimiteEnInput()">
             <option value="D1-ACRED1">Día 1 - Acreditación 1</option>
             <option value="D1-ACRED2">Día 1 - Acreditación 2</option>
@@ -308,10 +309,23 @@
             <option value="D3-ACRED1">Día 3 - Acreditación 1</option>
             <option value="D3-ACRED2">Día 3 - Acreditación 2 (Zorro)</option>
           </select>
-          <div style="display: flex; gap: 8px; margin-top: 6px;">
-            <input type="time" id="inputHoraLimiteConfig" style="margin:0;">
-            <button onclick="guardarHoraLimite()" class="btn-sm btn-green" style="margin-top:0;">Guardar Hora</button>
+
+          <div style="display: flex; gap: 8px; margin-top: 6px; align-items: center;">
+            <div style="flex: 1;">
+              <label style="font-size: 11px; color: var(--muted);">Hora límite (HH:MM):</label>
+              <input type="time" id="inputHoraLimiteConfig" style="margin:0;">
+            </div>
+            <div style="width: 120px;">
+              <label style="font-size: 11px; color: var(--muted);">COP / min:</label>
+              <input type="number" id="inputTarifaMinuto" value="700" min="0" style="margin:0;">
+            </div>
           </div>
+
+          <div style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;">
+            <button onclick="guardarHoraLimite()" class="btn-green" style="margin:0; flex: 1;">💾 Guardar Hora en Nube</button>
+            <button id="btnRecalcularMomento" onclick="recalcularMultasMomento()" class="btn-yellow" style="margin:0; flex: 1;">🔄 Recalcular Multas Ya Leídas</button>
+          </div>
+          <p id="estadoRecalculo" style="font-size: 12px; color: var(--muted); margin: 8px 0 0 0;"></p>
         </div>
 
         <!-- BLOQUE 2: DESCARGAS A LA CARTA -->
@@ -367,11 +381,13 @@
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 
-  let baseAsistentes = [];
-  let historialRegistros = [];
-  let horasLimites = JSON.parse(localStorage.getItem('conal2026_horas_limites')) || {
+  const DEFAULT_HORAS_LIMITES = {
     "D1-ACRED1": "08:30", "D2-ACRED1": "08:30", "D3-ACRED1": "09:00"
   };
+
+  let baseAsistentes = [];
+  let historialRegistros = [];
+  let horasLimites = JSON.parse(localStorage.getItem('conal2026_horas_limites')) || { ...DEFAULT_HORAS_LIMITES };
 
   let usuarioLogueado = "";
   let rolActual = "";
@@ -414,6 +430,39 @@
     "D3-ALM2": "Día 3 - Almuerzo 2"
   };
 
+  function obtenerTarifaMinuto() {
+    const el = document.getElementById('inputTarifaMinuto');
+    const val = el ? parseInt(el.value, 10) : 700;
+    return isNaN(val) || val < 0 ? 700 : val;
+  }
+
+  function calcularMultaPorHoraStr(momento, horaStr, horaLimiteStr, tarifaMinuto) {
+    if (!momento || !momento.includes("ACRED")) {
+      return { retrasoMinutos: 0, multaCOP: 0 };
+    }
+    if (!horaStr || !horaLimiteStr) {
+      return { retrasoMinutos: 0, multaCOP: 0 };
+    }
+    const partesReg = String(horaStr).trim().split(':');
+    const partesLim = String(horaLimiteStr).trim().split(':');
+    if (partesReg.length < 2 || partesLim.length < 2) {
+      return { retrasoMinutos: 0, multaCOP: 0 };
+    }
+    const regH = parseInt(partesReg[0], 10);
+    const regM = parseInt(partesReg[1], 10);
+    const limH = parseInt(partesLim[0], 10);
+    const limM = parseInt(partesLim[1], 10);
+    if ([regH, regM, limH, limM].some(n => isNaN(n))) {
+      return { retrasoMinutos: 0, multaCOP: 0 };
+    }
+
+    const regMin = regH * 60 + regM;
+    const limMin = limH * 60 + limM;
+    const retrasoMinutos = regMin > limMin ? (regMin - limMin) : 0;
+    const multaCOP = retrasoMinutos * tarifaMinuto;
+    return { retrasoMinutos, multaCOP };
+  }
+
   function reproducirSonido(tipo) {
     try {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -447,6 +496,18 @@
   }
 
   window.onload = function() {
+    // Escuchar horas límite compartidas en Firestore
+    db.collection("config_conal").doc("horas_limites").onSnapshot((doc) => {
+      if (doc.exists && doc.data() && doc.data().mapa) {
+        horasLimites = { ...DEFAULT_HORAS_LIMITES, ...doc.data().mapa };
+        localStorage.setItem('conal2026_horas_limites', JSON.stringify(horasLimites));
+        actualizarHoraLimiteVisual();
+        cargarHoraLimiteEnInput();
+      }
+    }, (err) => {
+      console.warn("No se pudo leer config_conal/horas_limites:", err);
+    });
+
     db.collection("registros_conal").orderBy("timestamp", "desc").onSnapshot((snapshot) => {
       historialRegistros = [];
       snapshot.forEach((doc) => {
@@ -473,10 +534,11 @@
 
   function actualizarHoraLimiteVisual() {
     const mom = document.getElementById('filtroMomento').value;
+    const tarifa = obtenerTarifaMinuto();
     const esAcreditacion = mom.includes("ACRED");
     if (esAcreditacion) {
       const hora = horasLimites[mom] || "08:30";
-      document.getElementById('infoHoraLimite').innerText = `🕒 Acreditación con multa por retraso: Límite ${hora} ($700 COP/min)`;
+      document.getElementById('infoHoraLimite').innerText = `🕒 Acreditación con multa por retraso: Límite ${hora} ($${tarifa.toLocaleString('es-CO')} COP/min)`;
     } else {
       document.getElementById('infoHoraLimite').innerText = `🍽️ Momento de Alimentación / Control de Aforo (Sin multas de tiempo)`;
     }
@@ -491,10 +553,91 @@
     const mom = document.getElementById('adminMomentoSelect').value;
     const horaVal = document.getElementById('inputHoraLimiteConfig').value;
     if (!horaVal) return alert("Selecciona una hora válida.");
+
     horasLimites[mom] = horaVal;
     localStorage.setItem('conal2026_horas_limites', JSON.stringify(horasLimites));
     actualizarHoraLimiteVisual();
-    alert(`Hora límite actualizada para ${NOMBRES_MOMENTOS[mom]}: ${horaVal}`);
+
+    db.collection("config_conal").doc("horas_limites").set({
+      mapa: horasLimites,
+      actualizadoEn: Date.now(),
+      actualizadoPor: usuarioLogueado || "admin"
+    }, { merge: true }).then(() => {
+      alert(`Hora límite guardada y sincronizada en la nube para ${NOMBRES_MOMENTOS[mom]}: ${horaVal}`);
+    }).catch((err) => {
+      alert(`Guardada localmente, pero hubo un error en nube (${err.message}). Revisa reglas de Firestore en config_conal.`);
+    });
+  }
+
+  async function recalcularMultasMomento() {
+    if (rolActual !== "ADMIN") return alert("Solo ADMIN puede recalcular multas.");
+    const mom = document.getElementById('adminMomentoSelect').value;
+    const horaLimiteStr = document.getElementById('inputHoraLimiteConfig').value || horasLimites[mom] || "08:30";
+    const tarifa = obtenerTarifaMinuto();
+
+    if (!mom.includes("ACRED")) {
+      return alert("Este momento no es una acreditación; los momentos de comida/refrigerio no llevan multa de tiempo.");
+    }
+
+    const candidatos = historialRegistros.filter(r => r.momento === mom && r.firestoreId);
+    if (candidatos.length === 0) {
+      return alert(`No hay lecturas registradas en "${NOMBRES_MOMENTOS[mom]}" para recalcular.`);
+    }
+
+    const confirmar = confirm(
+      `Vas a recalcular ${candidatos.length} lectura(s) ya guardadas en "${NOMBRES_MOMENTOS[mom]}"\n` +
+      `• Nueva hora límite: ${horaLimiteStr}\n` +
+      `• Tarifa: $${tarifa.toLocaleString('es-CO')} COP/min\n\n` +
+      `No se borrará ninguna asistencia. ¿Continuar?`
+    );
+    if (!confirmar) return;
+
+    const btn = document.getElementById('btnRecalcularMomento');
+    const estadoEl = document.getElementById('estadoRecalculo');
+    btn.disabled = true;
+    estadoEl.innerText = "Recalculando registros de forma segura...";
+
+    try {
+      horasLimites[mom] = horaLimiteStr;
+      localStorage.setItem('conal2026_horas_limites', JSON.stringify(horasLimites));
+      await db.collection("config_conal").doc("horas_limites").set({
+        mapa: horasLimites,
+        actualizadoEn: Date.now(),
+        actualizadoPor: usuarioLogueado || "admin"
+      }, { merge: true });
+
+      const CHUNK_SIZE = 400;
+      let actualizados = 0;
+
+      for (let i = 0; i < candidatos.length; i += CHUNK_SIZE) {
+        const lote = candidatos.slice(i, i + CHUNK_SIZE);
+        const batch = db.batch();
+
+        lote.forEach(reg => {
+          const calc = calcularMultaPorHoraStr(reg.momento, reg.hora, horaLimiteStr, tarifa);
+          const ref = db.collection("registros_conal").doc(reg.firestoreId);
+          batch.update(ref, {
+            retrasoMinutos: calc.retrasoMinutos,
+            multaCOP: calc.multaCOP,
+            recalculadoEn: Date.now(),
+            horaLimiteAplicada: horaLimiteStr
+          });
+          actualizados++;
+        });
+
+        await batch.commit();
+      }
+
+      actualizarHoraLimiteVisual();
+      estadoEl.innerText = `✅ Listo: ${actualizados} registro(s) de ${NOMBRES_MOMENTOS[mom]} actualizados con límite ${horaLimiteStr}.`;
+      alert(`Recálculo completado: ${actualizados} registro(s) actualizados sin borrar asistencias.`);
+    } catch (err) {
+      console.error("Error recalculando multas:", err);
+      estadoEl.innerText = `❌ Error al recalcular: ${err.message}`;
+      alert("Ocurrió un error al recalcular: " + err.message);
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   function realizarLogin() {
@@ -589,28 +732,16 @@
       return;
     }
 
-    const esAcreditacion = momento.includes("ACRED");
     const ahoraObj = new Date();
-    const horaActualMinutos = ahoraObj.getHours() * 60 + ahoraObj.getMinutes();
-    
-    let minutosRetraso = 0;
-    let valorMulta = 0;
-    
-    if (esAcreditacion) {
-      const horaLimiteStr = horasLimites[momento] || "08:30";
-      const [limH, limM] = horaLimiteStr.split(':').map(Number);
-      const horaLimiteMinutos = limH * 60 + limM;
-      if (horaActualMinutos > horaLimiteMinutos) {
-        minutosRetraso = horaActualMinutos - horaLimiteMinutos;
-        valorMulta = minutosRetraso * 700;
-      }
-    }
+    const horaStr = String(ahoraObj.getHours()).padStart(2, '0') + ":" + String(ahoraObj.getMinutes()).padStart(2, '0');
+    const fechaStr = ahoraObj.toLocaleDateString('es-CO');
+
+    const horaLimiteStr = horasLimites[momento] || "08:30";
+    const tarifaMinuto = obtenerTarifaMinuto();
+    const { retrasoMinutos: minutosRetraso, multaCOP: valorMulta } = calcularMultaPorHoraStr(momento, horaStr, horaLimiteStr, tarifaMinuto);
 
     const tipoAlerta = valorMulta > 0 ? "MULTA" : "VERDE";
     reproducirSonido(tipoAlerta);
-
-    const horaStr = String(ahoraObj.getHours()).padStart(2, '0') + ":" + String(ahoraObj.getMinutes()).padStart(2, '0');
-    const fechaStr = ahoraObj.toLocaleDateString('es-CO');
 
     const restriccion = asistente.restriccion || "Sin restricciones";
     const tieneAlertaComida = restriccion !== "Sin restricciones" && !["ninguna", "no aplica", "nada", "."].includes(restriccion.toLowerCase());
@@ -627,7 +758,8 @@
       restriccion: restriccion,
       operador: usuarioLogueado,
       retrasoMinutos: minutosRetraso,
-      multaCOP: valorMulta
+      multaCOP: valorMulta,
+      horaLimiteAplicada: momento.includes("ACRED") ? horaLimiteStr : null
     };
 
     db.collection("registros_conal").add(nuevoReg)
@@ -897,7 +1029,6 @@
     let sumaMultas = baseFiltrada.reduce((acc, r) => acc + (r.multaCOP || 0), 0);
     document.getElementById('kpiTotalMultas').innerText = `$${sumaMultas.toLocaleString('es-CO')}`;
 
-    // Progreso por momento
     let porMomento = {};
     baseFiltrada.forEach(r => {
       porMomento[r.momentoNombre] = (porMomento[r.momentoNombre] || 0) + 1;
@@ -909,7 +1040,6 @@
     }
     document.getElementById('statsPorMomento').innerHTML = htmlMom || '<p style="color:var(--muted); font-size:13px;">Sin registros en este periodo.</p>';
 
-    // Aforo por corte
     let porCorte = {};
     baseFiltrada.forEach(r => {
       porCorte[r.corte] = (porCorte[r.corte] || 0) + 1;
@@ -921,7 +1051,6 @@
     }
     document.getElementById('statsPorCorte').innerHTML = htmlCorte || '<p style="color:var(--muted); font-size:13px;">Sin registros en este periodo.</p>';
 
-    // Historial reciente
     let htmlReciente = '';
     baseFiltrada.slice(0, 8).forEach(r => {
       htmlReciente += `<div class="stat-row"><span><strong>${r.nombre}</strong> (${r.hora})</span><span style="color:var(--muted);">${r.momentoNombre}</span></div>`;
@@ -951,7 +1080,6 @@
   function borrarRegistroIndividual(id) {
     if (!confirm("¿Estás seguro de eliminar este registro del servidor?")) return;
     db.collection("registros_conal").doc(id).delete().then(() => {
-      // Se actualiza en tiempo real con onSnapshot
     }).catch(err => alert("Error al eliminar: " + err.message));
   }
 
