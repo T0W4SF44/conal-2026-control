@@ -293,22 +293,41 @@
     <div id="tabAdmin" class="tab-content hidden">
       <div class="card">
         <h3>Panel de Administración y Control</h3>
-        <p style="font-size: 13px; color: var(--muted);">Configura las horas de cierre de las <strong>Acreditaciones</strong> y recalcula multas ya registradas sin borrar asistencias.</p>
+        <p style="font-size: 13px; color: var(--muted);">Misma selección de momentos y acreditaciones que el lector QR. Configura horas de cierre y recalcula multas ya leídas sin borrar asistencias.</p>
         
         <!-- BLOQUE 1: HORAS LÍMITE Y RECÁLCULO SEGURO -->
         <div class="box-panel">
           <h4 style="font-size: 14px; margin-bottom: 8px;">🕒 1. Hora Límite y Recálculo de Multas</h4>
+          <label style="font-size: 12px; color: var(--muted);">Momento / Acreditación (idéntico al selector de lectura QR):</label>
           <select id="adminMomentoSelect" onchange="cargarHoraLimiteEnInput()">
-            <option value="D1-ACRED1">Día 1 - Acreditación 1</option>
-            <option value="D1-ACRED2">Día 1 - Acreditación 2</option>
-            <option value="D1-ACRED3">Día 1 - Acreditación 3</option>
-            <option value="D2-ACRED1">Día 2 - Acreditación 1</option>
-            <option value="D2-ACRED2">Día 2 - Acreditación 2</option>
-            <option value="D2-ACRED3">Día 2 - Acreditación 3</option>
-            <option value="D2-ACRED4">Día 2 - Acreditación 4 (Gala)</option>
-            <option value="D3-ACRED1">Día 3 - Acreditación 1</option>
-            <option value="D3-ACRED2">Día 3 - Acreditación 2 (Zorro)</option>
+            <optgroup label="Día 1 (21 de Noviembre)">
+              <option value="D1-ACRED1">Día 1 - Acreditación 1 (Mañana)</option>
+              <option value="D1-ACRED2">Día 1 - Acreditación 2 (Luego refrigerio)</option>
+              <option value="D1-ACRED3">Día 1 - Acreditación 3 (Luego almuerzo)</option>
+              <option value="D1-REF1">Día 1 - Refrigerio 1</option>
+              <option value="D1-REF2">Día 1 - Refrigerio 2</option>
+              <option value="D1-CENA1">Día 1 - Cena 1</option>
+            </optgroup>
+            <optgroup label="Día 2 (22 de Noviembre)">
+              <option value="D2-ACRED1">Día 2 - Acreditación 1 (Mañana)</option>
+              <option value="D2-ACRED2">Día 2 - Acreditación 2 (Luego refrigerio)</option>
+              <option value="D2-ACRED3">Día 2 - Acreditación 3 (Luego almuerzo)</option>
+              <option value="D2-ACRED4">Día 2 - Acreditación 4 (Gala)</option>
+              <option value="D2-REF3">Día 2 - Refrigerio 3</option>
+              <option value="D2-REF4">Día 2 - Refrigerio 4</option>
+              <option value="D2-DES1">Día 2 - Desayuno 1</option>
+              <option value="D2-ALM1">Día 2 - Almuerzo 1</option>
+              <option value="D2-CENA2">Día 2 - Cena 2</option>
+            </optgroup>
+            <optgroup label="Día 3 (23 de Noviembre)">
+              <option value="D3-ACRED1">Día 3 - Acreditación 1 (Mañana)</option>
+              <option value="D3-ACRED2">Día 3 - Acreditación 2 (Zorro)</option>
+              <option value="D3-REF5">Día 3 - Refrigerio 5</option>
+              <option value="D3-DES2">Día 3 - Desayuno 2</option>
+              <option value="D3-ALM2">Día 3 - Almuerzo 2</option>
+            </optgroup>
           </select>
+          <div id="infoMomentoAdmin" style="font-size: 12px; color: var(--yellow); margin: 4px 0 6px 0;"></div>
 
           <div style="display: flex; gap: 8px; margin-top: 6px; align-items: center;">
             <div style="flex: 1;">
@@ -317,7 +336,7 @@
             </div>
             <div style="width: 120px;">
               <label style="font-size: 11px; color: var(--muted);">COP / min:</label>
-              <input type="number" id="inputTarifaMinuto" value="700" min="0" style="margin:0;">
+              <input type="number" id="inputTarifaMinuto" value="700" min="0" oninput="actualizarHoraLimiteVisual(); cargarHoraLimiteEnInput();" style="margin:0;">
             </div>
           </div>
 
@@ -496,7 +515,6 @@
   }
 
   window.onload = function() {
-    // Escuchar horas límite compartidas en Firestore
     db.collection("config_conal").doc("horas_limites").onSnapshot((doc) => {
       if (doc.exists && doc.data() && doc.data().mapa) {
         horasLimites = { ...DEFAULT_HORAS_LIMITES, ...doc.data().mapa };
@@ -546,7 +564,18 @@
 
   function cargarHoraLimiteEnInput() {
     const mom = document.getElementById('adminMomentoSelect').value;
-    document.getElementById('inputHoraLimiteConfig').value = horasLimites[mom] || "08:30";
+    const hora = horasLimites[mom] || "08:30";
+    const tarifa = obtenerTarifaMinuto();
+    document.getElementById('inputHoraLimiteConfig').value = hora;
+
+    const infoAdmin = document.getElementById('infoMomentoAdmin');
+    if (infoAdmin) {
+      if (mom.includes("ACRED")) {
+        infoAdmin.innerText = `🕒 ${NOMBRES_MOMENTOS[mom] || mom} • Límite actual: ${hora} ($${tarifa.toLocaleString('es-CO')} COP/min)`;
+      } else {
+        infoAdmin.innerText = `🍽️ ${NOMBRES_MOMENTOS[mom] || mom} • Sin multa por retraso`;
+      }
+    }
   }
 
   function guardarHoraLimite() {
@@ -557,6 +586,7 @@
     horasLimites[mom] = horaVal;
     localStorage.setItem('conal2026_horas_limites', JSON.stringify(horasLimites));
     actualizarHoraLimiteVisual();
+    cargarHoraLimiteEnInput();
 
     db.collection("config_conal").doc("horas_limites").set({
       mapa: horasLimites,
@@ -629,6 +659,7 @@
       }
 
       actualizarHoraLimiteVisual();
+      cargarHoraLimiteEnInput();
       estadoEl.innerText = `✅ Listo: ${actualizados} registro(s) de ${NOMBRES_MOMENTOS[mom]} actualizados con límite ${horaLimiteStr}.`;
       alert(`Recálculo completado: ${actualizados} registro(s) actualizados sin borrar asistencias.`);
     } catch (err) {
